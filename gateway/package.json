@@ -1,0 +1,10 @@
+{
+  "name": "api-gateway",
+  "type": "module",
+  "dependencies": {
+    "fastify": "^4.26.0",
+    "@fastify/jwt": "^7.0.1",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/http-proxy": "^9.4.0"
+  }
+}

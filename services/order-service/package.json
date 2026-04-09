@@ -1,0 +1,8 @@
+{
+  "name": "order-service",
+  "type": "module",
+  "dependencies": {
+    "fastify": "^4.26.0",
+    "pg": "^8.11.5"
+  }
+}
