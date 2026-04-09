@@ -11,7 +11,10 @@ Para el funcionamiento del proyecto se requiere de tener instalado Docker.
 ```bash
 git clone https://github.com/Ignacio-ibarra05/Delivery
 cd Delivery
+```
 
 ## Funcionamiento
 
+```bash
 docker compose up --build
+```
