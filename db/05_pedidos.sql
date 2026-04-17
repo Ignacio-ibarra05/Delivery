@@ -30,3 +30,12 @@ CREATE TABLE orders.order_items (
     FOREIGN KEY (product_id)
     REFERENCES products.products(id)
 );
+
+-- COLUMNAS ADICIONALES para entrega y puntuación
+ALTER TABLE orders.orders
+  ADD COLUMN IF NOT EXISTS trabajador_lat  NUMERIC,
+  ADD COLUMN IF NOT EXISTS trabajador_lng  NUMERIC,
+  ADD COLUMN IF NOT EXISTS sucursal_lat    NUMERIC,
+  ADD COLUMN IF NOT EXISTS sucursal_lng    NUMERIC,
+  ADD COLUMN IF NOT EXISTS rating          SMALLINT CHECK (rating BETWEEN 0 AND 5),
+  ADD COLUMN IF NOT EXISTS entregado_at    TIMESTAMP;

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { getAdminUsuarios, getAdminTrabajadores, getAdminPedidos, adminCrearUsuario } from "../api";
+import { getAdminUsuarios, getAdminTrabajadores, getAdminPedidos, adminCrearUsuario, adminEliminarUsuario, adminEliminarPedido } from "../api";
 
 const TABS = [
-  { key: "usuarios",    label: "👤 Usuarios" },
-  { key: "trabajadores", label: "🛵 Trabajadores" },
-  { key: "pedidos",     label: "📦 Pedidos" },
-  { key: "crear",       label: "➕ Crear usuario" },
+  { key: "usuarios",    label: "Usuarios" },
+  { key: "trabajadores", label: "Trabajadores" },
+  { key: "pedidos",     label: "Pedidos" },
+  { key: "crear",       label: "Crear usuario" },
 ];
 
 export default function AdminView({ email, onLogout }) {
@@ -20,7 +20,7 @@ export default function AdminView({ email, onLogout }) {
     pedidos:      getAdminPedidos,
   };
 
-  useEffect(() => {
+  function recargarTab() {
     if (tab === "crear") return;
     setLoading(true);
     setError("");
@@ -31,13 +31,15 @@ export default function AdminView({ email, onLogout }) {
       })
       .catch(() => setError("Error al cargar los datos."))
       .finally(() => setLoading(false));
-  }, [tab]);
+  }
+
+  useEffect(() => { recargarTab(); }, [tab]);
 
   return (
     <div style={s.page}>
       <header style={s.header}>
         <div style={s.headerInner}>
-          <span style={s.headerLogo}>⚙️ Panel de Administración</span>
+          <span style={s.headerLogo}>Panel de Administración</span>
           <div style={s.headerRight}>
             <span style={s.headerEmail}>{email}</span>
             <button onClick={onLogout} style={s.logoutBtn}>Salir</button>
@@ -66,9 +68,9 @@ export default function AdminView({ email, onLogout }) {
           <p style={s.muted}>Cargando...</p>
         ) : (
           <>
-            {tab === "usuarios"     && <TablaUsuarios     rows={data.usuarios} />}
-            {tab === "trabajadores" && <TablaTrabajadores rows={data.trabajadores} />}
-            {tab === "pedidos"      && <TablaPedidos      rows={data.pedidos} />}
+            {tab === "usuarios"     && <TablaUsuarios     rows={data.usuarios}     onRecargar={recargarTab} />}
+            {tab === "trabajadores" && <TablaTrabajadores rows={data.trabajadores} onRecargar={recargarTab} />}
+            {tab === "pedidos"      && <TablaPedidos      rows={data.pedidos}      onRecargar={recargarTab} />}
           </>
         )}
       </div>
@@ -133,7 +135,7 @@ function CrearUsuarioForm() {
                 onClick={() => setForm((f) => ({ ...f, rol: r }))}
                 style={{ ...s.rolBtn, ...(form.rol === r ? s.rolBtnActive : {}) }}
               >
-                {r === "CLIENTE" ? "👤 Cliente" : r === "TRABAJADOR" ? "🛵 Trabajador" : "⚙️ Admin"}
+                {r === "CLIENTE" ? "Cliente" : r === "TRABAJADOR" ? "Trabajador" : "Admin"}
               </button>
             ))}
           </div>
@@ -190,48 +192,117 @@ function CrearUsuarioForm() {
 }
 
 // ── Tablas ───────────────────────────────────────────────────────
-function TablaUsuarios({ rows }) {
+function TablaUsuarios({ rows, onRecargar }) {
+  const [eliminando, setEliminando] = useState(null);
+  const [errorElim, setErrorElim] = useState("");
+
+  async function handleEliminar(email) {
+    if (!confirm(`¿Eliminar al usuario ${email}? Esta acción no se puede deshacer.`)) return;
+    setEliminando(email);
+    setErrorElim("");
+    try {
+      const res = await adminEliminarUsuario(email);
+      if (res.error) { setErrorElim(res.error); return; }
+      onRecargar();
+    } catch { setErrorElim("Error al eliminar el usuario."); }
+    finally { setEliminando(null); }
+  }
+
   return (
-    <Tabla
-      titulo={`Usuarios registrados (${rows.length})`}
-      columnas={["Nombre", "Apellidos", "Email", "RUT", "Estado", "Creado"]}
-      filas={rows.map((r) => [
-        r.nombre, r.apellidos, r.email, r.rut,
-        <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
-        new Date(r.created_at).toLocaleDateString("es-CL"),
-      ])}
-    />
+    <>
+      {errorElim && <div style={s.errorBox}>{errorElim}</div>}
+      <Tabla
+        titulo={`Usuarios registrados (${rows.length})`}
+        columnas={["Nombre", "Apellidos", "Email", "RUT", "Estado", "Creado", ""]}
+        filas={rows.map((r) => [
+          r.nombre, r.apellidos, r.email, r.rut,
+          <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
+          new Date(r.created_at).toLocaleDateString("es-CL"),
+          <button
+            onClick={() => handleEliminar(r.email)}
+            disabled={eliminando === r.email}
+            style={s.elimBtn}
+          >{eliminando === r.email ? "…" : "Eliminar"}</button>,
+        ])}
+      />
+    </>
   );
 }
 
-function TablaTrabajadores({ rows }) {
+function TablaTrabajadores({ rows, onRecargar }) {
+  const [eliminando, setEliminando] = useState(null);
+  const [errorElim, setErrorElim] = useState("");
+
+  async function handleEliminar(email) {
+    if (!confirm(`¿Eliminar al trabajador ${email}? Esta acción no se puede deshacer.`)) return;
+    setEliminando(email);
+    setErrorElim("");
+    try {
+      const res = await adminEliminarUsuario(email);
+      if (res.error) { setErrorElim(res.error); return; }
+      onRecargar();
+    } catch { setErrorElim("Error al eliminar el trabajador."); }
+    finally { setEliminando(null); }
+  }
+
   return (
-    <Tabla
-      titulo={`Trabajadores (${rows.length})`}
-      columnas={["Nombre", "Email", "RUT", "Disponible", "Estado", "Contratado"]}
-      filas={rows.map((r) => [
-        r.nombre + " " + r.apellidos, r.email, r.rut,
-        <Pill activo={r.disponible}>{r.disponible ? "Disponible" : "Ocupado"}</Pill>,
-        <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
-        r.fecha_contratacion ? new Date(r.fecha_contratacion).toLocaleDateString("es-CL") : "—",
-      ])}
-    />
+    <>
+      {errorElim && <div style={s.errorBox}>{errorElim}</div>}
+      <Tabla
+        titulo={`Trabajadores (${rows.length})`}
+        columnas={["Nombre", "Email", "RUT", "Disponible", "Estado", "Contratado", ""]}
+        filas={rows.map((r) => [
+          r.nombre + " " + r.apellidos, r.email, r.rut,
+          <Pill activo={r.disponible}>{r.disponible ? "Disponible" : "Ocupado"}</Pill>,
+          <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
+          r.fecha_contratacion ? new Date(r.fecha_contratacion).toLocaleDateString("es-CL") : "—",
+          <button
+            onClick={() => handleEliminar(r.email)}
+            disabled={eliminando === r.email}
+            style={s.elimBtn}
+          >{eliminando === r.email ? "…" : "Eliminar"}</button>,
+        ])}
+      />
+    </>
   );
 }
 
-function TablaPedidos({ rows }) {
+function TablaPedidos({ rows, onRecargar }) {
+  const [eliminando, setEliminando] = useState(null);
+  const [errorElim, setErrorElim] = useState("");
+
+  async function handleEliminar(id) {
+    if (!confirm(`¿Eliminar el pedido #${id.slice(0,8).toUpperCase()}? Esta acción no se puede deshacer.`)) return;
+    setEliminando(id);
+    setErrorElim("");
+    try {
+      const res = await adminEliminarPedido(id);
+      if (res.error) { setErrorElim(res.error); return; }
+      onRecargar();
+    } catch { setErrorElim("Error al eliminar el pedido."); }
+    finally { setEliminando(null); }
+  }
+
   return (
-    <Tabla
-      titulo={`Pedidos (${rows.length})`}
-      columnas={["ID", "Cliente", "Trabajador", "Estado", "Fecha"]}
-      filas={rows.map((r) => [
-        <code style={{ fontSize: 11 }}>#{r.id.slice(0, 8).toUpperCase()}</code>,
-        r.cliente_email || "—",
-        r.trabajador_email || <span style={{ color: "#bbb" }}>Sin asignar</span>,
-        <EstadoPill estado={r.estado} />,
-        new Date(r.created_at).toLocaleString("es-CL"),
-      ])}
-    />
+    <>
+      {errorElim && <div style={s.errorBox}>{errorElim}</div>}
+      <Tabla
+        titulo={`Pedidos (${rows.length})`}
+        columnas={["ID", "Cliente", "Trabajador", "Estado", "Fecha", ""]}
+        filas={rows.map((r) => [
+          <code style={{ fontSize: 11 }}>#{r.id.slice(0, 8).toUpperCase()}</code>,
+          r.cliente_email || "—",
+          r.trabajador_email || <span style={{ color: "#bbb" }}>Sin asignar</span>,
+          <EstadoPill estado={r.estado} />,
+          new Date(r.created_at).toLocaleString("es-CL"),
+          <button
+            onClick={() => handleEliminar(r.id)}
+            disabled={eliminando === r.id}
+            style={s.elimBtn}
+          >{eliminando === r.id ? "…" : "Eliminar"}</button>,
+        ])}
+      />
+    </>
   );
 }
 
@@ -312,4 +383,5 @@ const s = {
   rolBtn: { flex: 1, padding: "10px", borderRadius: 8, border: "1.5px solid #e0e0e0", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555" },
   rolBtnActive: { background: "#1a1a1a", color: "#fff", border: "1.5px solid #1a1a1a" },
   submitBtn: { width: "100%", padding: 12, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 },
+  elimBtn: { padding: "4px 12px", background: "#fff5f5", color: "#c0392b", border: "1px solid #fecaca", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 12 },
 };

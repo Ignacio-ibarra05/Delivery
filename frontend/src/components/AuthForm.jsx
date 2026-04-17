@@ -63,7 +63,6 @@ export default function AuthForm({ onLogin }) {
   return (
     <div style={s.page}>
       <div style={s.card}>
-        <div style={s.logo}>🛒</div>
         <h1 style={s.title}>
           {modo === "login" ? "Bienvenido" : "Crear cuenta"}
         </h1>

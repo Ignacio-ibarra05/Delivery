@@ -5,6 +5,7 @@ export default async function userRoutes(app) {
   // Crea una persona + usuario con rol CLIENTE.
   // Accesible sin token desde el formulario de login.
   // ──────────────────────────────────────────────────────────────
+  
   app.post("/register", async (req, reply) => {
     const { rut, nombre, apellidos, email, password, fecha_nacimiento } = req.body;
 
