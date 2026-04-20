@@ -59,7 +59,7 @@ function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, CLIE
         L.divIcon({ className: "", html: `<div style="background:${bg};color:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.25);">${emoji}</div>`, iconSize:[44,44], iconAnchor:[22,22] });
       L.marker([trabajadorLat, trabajadorLng], { icon: mkStyle("#f4a261","🛵") }).addTo(map).bindPopup(`<b>Tu posición</b><br>${TRABAJADOR_LUGAR}`).openPopup();
       L.marker([sucursalLat, sucursalLng],     { icon: mkStyle("#2d6a4f","🍽️") }).addTo(map).bindPopup(`<b>${sucursalfirst_name}</b><br>Punto de recogida`);
-      L.marker([CLIENTLat, CLIENTLng],        { icon: mkStyle("#e63946","📦") }).addTo(map).bindPopup(`<b>Destino del CLIENT</b><br>${CLIENT_LUGAR}`);
+      L.marker([CLIENTLat, CLIENTLng],        { icon: mkStyle("#e63946","📦") }).addTo(map).bindPopup(`<b>Destino del CLIENTE</b><br>${CLIENT_LUGAR}`);
       if (L.Routing) {
         L.Routing.control({ waypoints:[L.latLng(trabajadorLat,trabajadorLng),L.latLng(sucursalLat,sucursalLng),L.latLng(CLIENTLat,CLIENTLng)], routeWhileDragging:false, addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:true, show:false, createMarker:()=>null, lineOptions:{styles:[{color:"#f4a261",weight:5,opacity:0.85}]}, router:L.Routing.osrmv1({serviceUrl:"https://router.project-osrm.org/route/v1",profile:"driving"}) }).addTo(map);
       } else {
@@ -79,7 +79,7 @@ function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, CLIE
       <div style={rm.leyenda}>
         <span style={rm.leyItem}><span style={{...rm.dot,background:"#f4a261"}}/> Tu posición ({TRABAJADOR_LUGAR})</span>
         <span style={rm.leyItem}><span style={{...rm.dot,background:"#2d6a4f"}}/> {sucursalfirst_name}</span>
-        <span style={rm.leyItem}><span style={{...rm.dot,background:"#e63946"}}/> CLIENT ({CLIENT_LUGAR})</span>
+        <span style={rm.leyItem}><span style={{...rm.dot,background:"#e63946"}}/> CLIENTE ({CLIENT_LUGAR})</span>
       </div>
     </div>
   );
@@ -110,7 +110,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
   const tiempoEst = Math.round((distTotal / 20) * 60);
 
   async function handleEntregar() {
-    if (!confirm("¿Confirmas que ya entregaste el pedido al CLIENT?")) return;
+    if (!confirm("¿Confirmas que ya entregaste el pedido al CLIENTE?")) return;
     setEntregando(true);
     setError("");
     try {
@@ -161,7 +161,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
         <div style={ac.resumenCard}>
           <p style={ac.resumenTit}>Detalle del pedido</p>
           {pedido.items.map((item,i)=>(
-            <div key={i} style={ac.resumenRow}><span>{item.name} ×{Number(item.amount)}</span><span style={ac.resumenPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>
+            <div key={i} style={ac.resumenRow}><span>{item.name} ×{Number(i.amount)}</span><span style={ac.resumenPrecio}>${((Number(i.price)||0)*Number(i.amount)).toLocaleString("es-CL")}</span></div>
           ))}
           <div style={ac.resumenTotal}><span>Total</span><strong>${totalPedido.toLocaleString("es-CL")}</strong></div>
         </div>
@@ -202,7 +202,7 @@ function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
         </div>
         <div style={mo.modalBody}>
           <div style={mo.seccion}>
-            <p style={mo.secLabel}>CLIENT</p>
+            <p style={mo.secLabel}>CLIENTE</p>
             <p style={mo.secValor}>{pedido.client_first_name||pedido.client_email}</p>
             <p style={mo.secSub}>{pedido.client_email}</p>
             <p style={mo.secSub}> {CLIENT_LUGAR}</p>
@@ -334,7 +334,7 @@ export default function TrabajadorView({ email, onLogout }) {
                   <div style={s.cardHeader}><div><p style={s.pedidoId}>Pedido #{pedido.id.slice(0,8).toUpperCase()}</p><p style={s.pedidoFecha}>{new Date(pedido.created_at).toLocaleString("es-CL")}</p></div><span style={s.badge}>PENDIENTE</span></div>
                   <div style={s.cardBody}>
                     <div style={s.cardRow}>
-                      <div><p style={s.CLIENTLabel}>CLIENT</p><p style={s.CLIENTEmail}>{pedido.client_first_name||pedido.client_email}</p></div>
+                      <div><p style={s.CLIENTLabel}>CLIENTE</p><p style={s.CLIENTEmail}>{pedido.client_first_name||pedido.client_email}</p></div>
                       {total>0&&<div style={s.totalBadge}><p style={s.totalLabel}>Total</p><p style={s.totalValor}>${total.toLocaleString("es-CL")}</p></div>}
                     </div>
                     {pedido.items&&pedido.items.length>0&&<div style={s.items}>{pedido.items.map((item,i)=><div key={i} style={s.itemRow}><span>{item.name} ×{Number(item.amount)}</span><span style={s.itemPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>)}</div>}

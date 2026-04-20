@@ -40,14 +40,9 @@ export default async function authRoutes(app) {
       return reply.code(401).send({ error: "Invalid credentials" });
     }
 
-    // ⚠️ Plain passwords (local development)
-    if (user.password !== password) {
-      return reply.code(401).send({ error: "Invalid credentials" });
-    }
-
-    // ✅ When you enable bcrypt:
-    // const valid = await bcrypt.compare(password, user.password);
-    // if (!valid) return reply.code(401).send({ error: "Invalid credentials" });
+    // ✅ bcrypt comparison — works with hashed passwords in the DB
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return reply.code(401).send({ error: "Invalid credentials" });
 
     const token = app.jwt.sign(
       {

@@ -1,3 +1,7 @@
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 12;
+
 export default async function userRoutes(app) {
 
   // ──────────────────────────────────────────────────────────────
@@ -33,9 +37,11 @@ export default async function userRoutes(app) {
       );
       const peopleId = peopleRes.rows[0].id;
 
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
       await client.query(
         "INSERT INTO auth.user (people_id, password) VALUES ($1, $2)",
-        [peopleId, password]
+        [peopleId, hashedPassword]
       );
 
       await client.query("COMMIT");
@@ -93,9 +99,10 @@ export default async function userRoutes(app) {
       const peopleId = peopleRes.rows[0].id;
 
       // 2. Always create auth.user record (needed for login)
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
       await client.query(
         "INSERT INTO auth.user (people_id, password) VALUES ($1, $2)",
-        [peopleId, password]
+        [peopleId, hashedPassword]
       );
 
       // 3. Insert into the corresponding role table
