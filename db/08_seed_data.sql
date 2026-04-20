@@ -6,15 +6,6 @@ VALUES
 ('33.333.333-3', 'Ana',   'Admin',      'admin@test.cl',      '1985-07-15')
 ON CONFLICT (email) DO NOTHING;
 
--- Insert users (passwords are bcrypt hashes, rounds=12)
--- cliente123   -> hash below
--- repartidor123 -> hash below
--- admin123     -> hash below
--- $2b$12$x3mzgvJt202FRyuXupnm8.uQCnh8PJq94W5bmjcbsagYd2VEtnl9q 
--- $2b$12$YHt.3/CyIarnaZrxhWvx5upMPG.n36aPXxLP0IBlZZDf76qj1wi4W
--- $2b$12$H7Nmdl8U2lPNrR0rQf6yUu36I3jT4pWC1ly6MKCaQck9.QBVsG7DK
--- To regenerate: node -e "const b=require('bcrypt'); b.hash('tu_password',12).then(console.log)"
-
 INSERT INTO auth.user (people_id, password)
 SELECT id, '$2b$12$x3mzgvJt202FRyuXupnm8.uQCnh8PJq94W5bmjcbsagYd2VEtnl9q'
 FROM auth.people WHERE email = 'cliente@test.cl'
