@@ -105,7 +105,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
   const [entregando, setEntregando] = useState(false);
   const [entregado, setEntregado] = useState(false);
   const [error, setError] = useState("");
-  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0) : 0;
+  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(Number(i.price)||0)*Number(i.amount),0) : 0;
   const distTotal = distanciaKm(TRABAJADOR_LAT, TRABAJADOR_LNG, CLIENT_LAT, CLIENT_LNG);
   const tiempoEst = Math.round((distTotal / 20) * 60);
 
@@ -161,7 +161,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
         <div style={ac.resumenCard}>
           <p style={ac.resumenTit}>Detalle del pedido</p>
           {pedido.items.map((item,i)=>(
-            <div key={i} style={ac.resumenRow}><span>{item.name} ×{item.amount}</span><span style={ac.resumenPrecio}>${((item.price||0)*item.amount).toLocaleString("es-CL")}</span></div>
+            <div key={i} style={ac.resumenRow}><span>{item.name} ×{Number(item.amount)}</span><span style={ac.resumenPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>
           ))}
           <div style={ac.resumenTotal}><span>Total</span><strong>${totalPedido.toLocaleString("es-CL")}</strong></div>
         </div>
@@ -189,7 +189,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
 // ── Modal con detalle y preview de ruta ──
 function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
   const sucursal = getSucursalParaPedido(pedido);
-  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0) : 0;
+  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(Number(i.price)||0)*Number(i.amount),0) : 0;
   const distTotal = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENT_LAT,CLIENT_LNG);
   const tiempoEst = Math.round((distTotal/20)*60);
 
@@ -210,7 +210,7 @@ function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
           {pedido.items&&pedido.items.length>0&&(
             <div style={mo.seccion}>
               <p style={mo.secLabel}>Detalle del pedido</p>
-              <div style={mo.itemsList}>{pedido.items.map((item,i)=><div key={i} style={mo.itemRow}><span>{item.name} ×{item.cantidad}</span><span style={mo.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>
+              <div style={mo.itemsList}>{pedido.items.map((item,i)=><div key={i} style={mo.itemRow}><span>{item.name} ×{Number(item.amount)}</span><span style={mo.itemPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>)}</div>
               <div style={mo.totalRow}><span style={mo.totalLabel}>Total</span><strong style={mo.totalValor}>${totalPedido.toLocaleString("es-CL")}</strong></div>
             </div>
           )}
@@ -326,7 +326,7 @@ export default function TrabajadorView({ email, onLogout }) {
         ) : (
           <div style={s.list}>
             {deliveryVisibles.map(pedido=>{
-              const total = pedido.items?pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0):0;
+              const total = pedido.items?pedido.items.reduce((s,i)=>s+(Number(i.price)||0)*Number(i.amount),0):0;
               const dist = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENT_LAT,CLIENT_LNG);
               const tEst = Math.round((dist/20)*60);
               return (
@@ -337,7 +337,7 @@ export default function TrabajadorView({ email, onLogout }) {
                       <div><p style={s.CLIENTLabel}>CLIENT</p><p style={s.CLIENTEmail}>{pedido.client_first_name||pedido.client_email}</p></div>
                       {total>0&&<div style={s.totalBadge}><p style={s.totalLabel}>Total</p><p style={s.totalValor}>${total.toLocaleString("es-CL")}</p></div>}
                     </div>
-                    {pedido.items&&pedido.items.length>0&&<div style={s.items}>{pedido.items.map((item,i)=><div key={i} style={s.itemRow}><span>{item.name} ×{item.cantidad}</span><span style={s.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>}
+                    {pedido.items&&pedido.items.length>0&&<div style={s.items}>{pedido.items.map((item,i)=><div key={i} style={s.itemRow}><span>{item.name} ×{Number(item.amount)}</span><span style={s.itemPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>)}</div>}
                     <div style={s.rutaResumen}><span style={s.rutaTag}>{dist.toFixed(2)}km · ~{tEst} min</span><span style={s.verRutaLink}>Ver ruta en mapa →</span></div>
                   </div>
                   <div style={s.cardFooter}>
