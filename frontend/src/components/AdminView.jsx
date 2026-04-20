@@ -1,23 +1,23 @@
 import { useState, useEffect } from "react";
-import { getAdminUsuarios, getAdminTrabajadores, getAdminPedidos, adminCrearUsuario, adminEliminarUsuario, adminEliminarPedido } from "../api";
+import { getAdminuser, getAdminworker, getAdmindelivery, adminCrearUsuario, adminEliminarUsuario, adminEliminarPedido } from "../api";
 
 const TABS = [
-  { key: "usuarios",    label: "Usuarios" },
-  { key: "trabajadores", label: "Trabajadores" },
-  { key: "pedidos",     label: "Pedidos" },
+  { key: "user",    label: "user" },
+  { key: "worker", label: "worker" },
+  { key: "delivery",     label: "delivery" },
   { key: "crear",       label: "Crear usuario" },
 ];
 
 export default function AdminView({ email, onLogout }) {
-  const [tab, setTab] = useState("usuarios");
-  const [data, setData] = useState({ usuarios: [], trabajadores: [], pedidos: [] });
+  const [tab, setTab] = useState("user");
+  const [data, setData] = useState({ user: [], worker: [], delivery: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchers = {
-    usuarios:     getAdminUsuarios,
-    trabajadores: getAdminTrabajadores,
-    pedidos:      getAdminPedidos,
+    user:     getAdminuser,
+    worker: getAdminworker,
+    delivery:      getAdmindelivery,
   };
 
   function recargarTab() {
@@ -68,9 +68,9 @@ export default function AdminView({ email, onLogout }) {
           <p style={s.muted}>Cargando...</p>
         ) : (
           <>
-            {tab === "usuarios"     && <TablaUsuarios     rows={data.usuarios}     onRecargar={recargarTab} />}
-            {tab === "trabajadores" && <TablaTrabajadores rows={data.trabajadores} onRecargar={recargarTab} />}
-            {tab === "pedidos"      && <TablaPedidos      rows={data.pedidos}      onRecargar={recargarTab} />}
+            {tab === "user"     && <Tablauser     rows={data.user}     onRecargar={recargarTab} />}
+            {tab === "worker" && <Tablaworker rows={data.worker} onRecargar={recargarTab} />}
+            {tab === "delivery"      && <Tabladelivery      rows={data.delivery}      onRecargar={recargarTab} />}
           </>
         )}
       </div>
@@ -80,9 +80,9 @@ export default function AdminView({ email, onLogout }) {
 
 // ── Formulario crear usuario (admin) ────────────────────────────
 const INITIAL = {
-  rut: "", nombre: "", apellidos: "", email: "",
-  password: "", fecha_nacimiento: "",
-  rol: "CLIENTE", fecha_contratacion: "",
+  rut: "", first_name: "", last_name: "", email: "",
+  password: "", birth_date: "",
+  rol: "CLIENT", contract_date: "",
 };
 
 function CrearUsuarioForm() {
@@ -103,8 +103,8 @@ function CrearUsuarioForm() {
     setLoading(true);
     try {
       const payload = { ...form };
-      if (payload.rol !== "TRABAJADOR") delete payload.fecha_contratacion;
-      if (!payload.fecha_nacimiento) delete payload.fecha_nacimiento;
+      if (payload.rol !== "WORKER") delete payload.contract_date;
+      if (!payload.birth_date) delete payload.birth_date;
 
       const res = await adminCrearUsuario(payload);
       if (res.error) { setError(res.error); return; }
@@ -129,13 +129,13 @@ function CrearUsuarioForm() {
         <div style={s.fieldGroup}>
           <label style={s.label}>Rol</label>
           <div style={s.rolBtns}>
-            {["CLIENTE", "TRABAJADOR", "ADMIN"].map((r) => (
+            {["CLIENT", "WORKER", "ADMIN"].map((r) => (
               <button
                 key={r} type="button"
                 onClick={() => setForm((f) => ({ ...f, rol: r }))}
                 style={{ ...s.rolBtn, ...(form.rol === r ? s.rolBtnActive : {}) }}
               >
-                {r === "CLIENTE" ? "Cliente" : r === "TRABAJADOR" ? "Trabajador" : "Admin"}
+                {r === "CLIENT" ? "Client" : r === "WORKER" ? "Worker" : "Admin"}
               </button>
             ))}
           </div>
@@ -143,12 +143,12 @@ function CrearUsuarioForm() {
 
         <div style={s.grid2}>
           <div style={s.fieldGroup}>
-            <label style={s.label}>Nombre</label>
-            <input type="text" required value={form.nombre} onChange={set("nombre")} style={s.input} placeholder="Juan" />
+            <label style={s.label}>first_name</label>
+            <input type="text" required value={form.first_name} onChange={set("first_name")} style={s.input} placeholder="Juan" />
           </div>
           <div style={s.fieldGroup}>
-            <label style={s.label}>Apellidos</label>
-            <input type="text" required value={form.apellidos} onChange={set("apellidos")} style={s.input} placeholder="Pérez González" />
+            <label style={s.label}>Last Name</label>
+            <input type="text" required value={form.last_name} onChange={set("last_name")} style={s.input} placeholder="Pérez González" />
           </div>
         </div>
 
@@ -159,7 +159,7 @@ function CrearUsuarioForm() {
           </div>
           <div style={s.fieldGroup}>
             <label style={s.label}>Fecha de nacimiento</label>
-            <input type="date" value={form.fecha_nacimiento} onChange={set("fecha_nacimiento")} style={s.input} />
+            <input type="date" value={form.birth_date} onChange={set("birth_date")} style={s.input} />
           </div>
         </div>
 
@@ -173,10 +173,10 @@ function CrearUsuarioForm() {
           <input type="password" required value={form.password} onChange={set("password")} style={s.input} placeholder="Mínimo 6 caracteres" />
         </div>
 
-        {form.rol === "TRABAJADOR" && (
+        {form.rol === "WORKER" && (
           <div style={s.fieldGroup}>
             <label style={s.label}>Fecha de contratación</label>
-            <input type="date" value={form.fecha_contratacion} onChange={set("fecha_contratacion")} style={s.input} />
+            <input type="date" value={form.contract_date} onChange={set("contract_date")} style={s.input} />
           </div>
         )}
 
@@ -192,7 +192,7 @@ function CrearUsuarioForm() {
 }
 
 // ── Tablas ───────────────────────────────────────────────────────
-function TablaUsuarios({ rows, onRecargar }) {
+function Tablauser({ rows, onRecargar }) {
   const [eliminando, setEliminando] = useState(null);
   const [errorElim, setErrorElim] = useState("");
 
@@ -212,11 +212,11 @@ function TablaUsuarios({ rows, onRecargar }) {
     <>
       {errorElim && <div style={s.errorBox}>{errorElim}</div>}
       <Tabla
-        titulo={`Usuarios registrados (${rows.length})`}
-        columnas={["Nombre", "Apellidos", "Email", "RUT", "Estado", "Creado", ""]}
+        titulo={`user registrados (${rows.length})`}
+        columnas={["First Name", "Last Name", "Email", "RUT", "State", "Created", ""]}
         filas={rows.map((r) => [
-          r.nombre, r.apellidos, r.email, r.rut,
-          <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
+          r.first_name, r.last_name, r.email, r.rut,
+          <Pill activo={r.state}>{r.state ? "Activo" : "Inactivo"}</Pill>,
           new Date(r.created_at).toLocaleDateString("es-CL"),
           <button
             onClick={() => handleEliminar(r.email)}
@@ -229,7 +229,7 @@ function TablaUsuarios({ rows, onRecargar }) {
   );
 }
 
-function TablaTrabajadores({ rows, onRecargar }) {
+function Tablaworker({ rows, onRecargar }) {
   const [eliminando, setEliminando] = useState(null);
   const [errorElim, setErrorElim] = useState("");
 
@@ -249,13 +249,13 @@ function TablaTrabajadores({ rows, onRecargar }) {
     <>
       {errorElim && <div style={s.errorBox}>{errorElim}</div>}
       <Tabla
-        titulo={`Trabajadores (${rows.length})`}
-        columnas={["Nombre", "Email", "RUT", "Disponible", "Estado", "Contratado", ""]}
+        titulo={`worker (${rows.length})`}
+        columnas={["first_name", "Email", "RUT", "Disponible", "Estado", "Contratado", ""]}
         filas={rows.map((r) => [
-          r.nombre + " " + r.apellidos, r.email, r.rut,
-          <Pill activo={r.disponible}>{r.disponible ? "Disponible" : "Ocupado"}</Pill>,
-          <Pill activo={r.estado}>{r.estado ? "Activo" : "Inactivo"}</Pill>,
-          r.fecha_contratacion ? new Date(r.fecha_contratacion).toLocaleDateString("es-CL") : "—",
+          r.first_name + " " + r.last_name, r.email, r.rut,
+          <Pill activo={r.available}>{r.available ? "Disponible" : "Ocupado"}</Pill>,
+          <Pill activo={r.state}>{r.state ? "Activo" : "Inactivo"}</Pill>,
+          r.contract_date ? new Date(r.contract_date).toLocaleDateString("es-CL") : "—",
           <button
             onClick={() => handleEliminar(r.email)}
             disabled={eliminando === r.email}
@@ -267,7 +267,7 @@ function TablaTrabajadores({ rows, onRecargar }) {
   );
 }
 
-function TablaPedidos({ rows, onRecargar }) {
+function Tabladelivery({ rows, onRecargar }) {
   const [eliminando, setEliminando] = useState(null);
   const [errorElim, setErrorElim] = useState("");
 
@@ -287,13 +287,13 @@ function TablaPedidos({ rows, onRecargar }) {
     <>
       {errorElim && <div style={s.errorBox}>{errorElim}</div>}
       <Tabla
-        titulo={`Pedidos (${rows.length})`}
-        columnas={["ID", "Cliente", "Trabajador", "Estado", "Fecha", ""]}
+        titulo={`delivery (${rows.length})`}
+        columnas={["ID", "CLIENT", "Trabajador", "Estado", "Fecha", ""]}
         filas={rows.map((r) => [
           <code style={{ fontSize: 11 }}>#{r.id.slice(0, 8).toUpperCase()}</code>,
-          r.cliente_email || "—",
-          r.trabajador_email || <span style={{ color: "#bbb" }}>Sin asignar</span>,
-          <EstadoPill estado={r.estado} />,
+          r.client_email || "—",
+          r.worker_email || <span style={{ color: "#bbb" }}>Sin asignar</span>,
+          <EstadoPill estado={r.state} />,
           new Date(r.created_at).toLocaleString("es-CL"),
           <button
             onClick={() => handleEliminar(r.id)}
@@ -340,13 +340,13 @@ function Pill({ activo, children }) {
 
 function EstadoPill({ estado }) {
   const map = {
-    PENDIENTE: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
-    EN_CAMINO: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
-    ENTREGADO: { bg: "#f0fff4", color: "#2d6a4f", border: "#b7ebd0" },
-    CANCELADO: { bg: "#fff0f0", color: "#c0392b", border: "#f5c2c2" },
+    PENDING: { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" },
+    EN_ROUTE: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    DELIVERED: { bg: "#f0fff4", color: "#2d6a4f", border: "#b7ebd0" },
+    CANCELLED: { bg: "#fff0f0", color: "#c0392b", border: "#f5c2c2" },
     PUBLICADO: { bg: "#faf5ff", color: "#7e22ce", border: "#e9d5ff" },
   };
-  const st = map[estado] || map.PENDIENTE;
+  const st = map[estado] || map.PENDING;
   return <span style={{ ...s.pill, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{estado}</span>;
 }
 

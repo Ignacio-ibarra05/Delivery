@@ -2,9 +2,9 @@ import { useState } from "react";
 import { login, register } from "../api";
 
 const INITIAL_REG = {
-  rut: "", nombre: "", apellidos: "",
+  rut: "", first_name: "", last_name: "",
   email: "", password: "", confirmar: "",
-  fecha_nacimiento: "",
+  birth_date: "",
 };
 
 export default function AuthForm({ onLogin }) {
@@ -69,7 +69,7 @@ export default function AuthForm({ onLogin }) {
         <p style={s.subtitle}>
           {modo === "login"
             ? "Ingresa tus credenciales para continuar"
-            : "Completa el formulario para registrarte como cliente"}
+            : "Completa el formulario para registrarte como CLIENT"}
         </p>
 
         {/* ── FORMULARIO LOGIN ── */}
@@ -100,18 +100,18 @@ export default function AuthForm({ onLogin }) {
         {modo === "register" && (
           <form onSubmit={handleRegister} style={s.form}>
             <div style={s.row}>
-              <Field label="Nombre">
+              <Field label="first_name">
                 <input
                   type="text" placeholder="Juan"
-                  value={regData.nombre} required style={s.input}
-                  onChange={(e) => setRegData({ ...regData, nombre: e.target.value })}
+                  value={regData.first_name} required style={s.input}
+                  onChange={(e) => setRegData({ ...regData, first_name: e.target.value })}
                 />
               </Field>
-              <Field label="Apellidos">
+              <Field label="Last Name">
                 <input
                   type="text" placeholder="Pérez González"
-                  value={regData.apellidos} required style={s.input}
-                  onChange={(e) => setRegData({ ...regData, apellidos: e.target.value })}
+                  value={regData.last_name} required style={s.input}
+                  onChange={(e) => setRegData({ ...regData, last_name: e.target.value })}
                 />
               </Field>
             </div>
@@ -132,8 +132,8 @@ export default function AuthForm({ onLogin }) {
             <Field label="Fecha de nacimiento">
               <input
                 type="date"
-                value={regData.fecha_nacimiento} style={s.input}
-                onChange={(e) => setRegData({ ...regData, fecha_nacimiento: e.target.value })}
+                value={regData.birth_date} style={s.input}
+                onChange={(e) => setRegData({ ...regData, birth_date: e.target.value })}
               />
             </Field>
             <div style={s.row}>
@@ -155,7 +155,7 @@ export default function AuthForm({ onLogin }) {
             {error  && <Alerta tipo="error">{error}</Alerta>}
             {exito  && <Alerta tipo="exito">{exito}</Alerta>}
             <button type="submit" disabled={loading} style={s.btn}>
-              {loading ? "Creando cuenta..." : "Registrarme como cliente"}
+              {loading ? "Creando cuenta..." : "Registrarme como CLIENT"}
             </button>
           </form>
         )}

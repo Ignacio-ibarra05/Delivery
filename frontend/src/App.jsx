@@ -21,11 +21,11 @@ export default function App() {
     return <AuthForm onLogin={handleLogin} />;
   }
 
-  if (session.rol === "CLIENTE") {
+  if (session.rol === "CLIENT") {
     return <ClienteView email={session.email} onLogout={handleLogout} />;
   }
 
-  if (session.rol === "TRABAJADOR") {
+  if (session.rol === "WORKER") {
     return <TrabajadorView email={session.email} onLogout={handleLogout} />;
   }
 

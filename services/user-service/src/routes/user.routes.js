@@ -1,48 +1,48 @@
 export default async function userRoutes(app) {
 
   // ──────────────────────────────────────────────────────────────
-  // PÚBLICO — POST /register
-  // Crea una persona + usuario con rol CLIENTE.
-  // Accesible sin token desde el formulario de login.
+  // PUBLIC — POST /register
+  // Creates a people + user with CLIENT role.
+  // Accessible without token from the login form.
   // ──────────────────────────────────────────────────────────────
   
   app.post("/register", async (req, reply) => {
-    const { rut, nombre, apellidos, email, password, fecha_nacimiento } = req.body;
+    const { rut, first_name, last_name, email, password, birth_date } = req.body;
 
-    if (!rut || !nombre || !apellidos || !email || !password) {
-      return reply.code(400).send({ error: "Faltan campos obligatorios: rut, nombre, apellidos, email, password" });
+    if (!rut || !first_name || !last_name || !email || !password) {
+      return reply.code(400).send({ error: "Missing required fields: rut, first_name, last_name, email, password" });
     }
 
-    // Verificar duplicados
-    const existe = await app.pg.query(
-      "SELECT id FROM auth.personas WHERE email = $1 OR rut = $2",
+    // Check for duplicates
+    const exists = await app.pg.query(
+      "SELECT id FROM auth.people WHERE email = $1 OR rut = $2",
       [email, rut]
     );
-    if (existe.rows.length > 0) {
-      return reply.code(409).send({ error: "El email o RUT ya está registrado" });
+    if (exists.rows.length > 0) {
+      return reply.code(409).send({ error: "Email or RUT already registered" });
     }
 
     const client = await app.pg.connect();
     try {
       await client.query("BEGIN");
 
-      const personaRes = await client.query(
-        `INSERT INTO auth.personas (rut, nombre, apellidos, email, fecha_nacimiento)
+      const peopleRes = await client.query(
+        `INSERT INTO auth.people (rut, first_name, last_name, email, birth_date)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [rut, nombre, apellidos, email, fecha_nacimiento || null]
+        [rut, first_name, last_name, email, birth_date || null]
       );
-      const personaId = personaRes.rows[0].id;
+      const peopleId = peopleRes.rows[0].id;
 
       await client.query(
-        "INSERT INTO auth.usuarios (persona_id, password) VALUES ($1, $2)",
-        [personaId, password]
+        "INSERT INTO auth.user (people_id, password) VALUES ($1, $2)",
+        [peopleId, password]
       );
 
       await client.query("COMMIT");
-      reply.code(201).send({ message: "Cuenta creada correctamente. Ya puedes iniciar sesión." });
+      reply.code(201).send({ message: "Account created successfully. You can now log in." });
     } catch (err) {
       await client.query("ROLLBACK");
-      reply.code(500).send({ error: "Error al crear la cuenta" });
+      reply.code(500).send({ error: "Error creating the account" });
     } finally {
       client.release();
     }
@@ -50,73 +50,73 @@ export default async function userRoutes(app) {
 
   // ──────────────────────────────────────────────────────────────
   // ADMIN — POST /admin/crear-usuario
-  // Crea un usuario con cualquier rol (CLIENTE, TRABAJADOR, ADMIN).
-  // Solo accesible con token y rol ADMIN (validado por el gateway
-  // que inyecta x-user-rol en el header).
+  // Creates a user with any role (CLIENT, WORKER, ADMIN).
+  // Only accessible with token and ADMIN role (validated by the gateway
+  // which injects x-user-rol in the header).
   // ──────────────────────────────────────────────────────────────
   app.post("/admin/crear-usuario", async (req, reply) => {
-    const rolSolicitante = req.headers["x-user-rol"];
+    const requesterRole = req.headers["x-user-rol"];
 
-    if (rolSolicitante !== "ADMIN") {
-      return reply.code(403).send({ error: "Solo los administradores pueden crear usuarios con este endpoint" });
+    if (requesterRole !== "ADMIN") {
+      return reply.code(403).send({ error: "Only administrators can create users with this endpoint" });
     }
 
-    const { rut, nombre, apellidos, email, password, fecha_nacimiento, rol, fecha_contratacion } = req.body;
+    const { rut, first_name, last_name, email, password, birth_date, rol, contract_date } = req.body;
 
-    if (!rut || !nombre || !apellidos || !email || !password || !rol) {
-      return reply.code(400).send({ error: "Faltan campos obligatorios: rut, nombre, apellidos, email, password, rol" });
+    if (!rut || !first_name || !last_name || !email || !password || !rol) {
+      return reply.code(400).send({ error: "Missing required fields: rut, first_name, last_name, email, password, rol" });
     }
 
-    const rolesValidos = ["CLIENTE", "TRABAJADOR", "ADMIN"];
-    if (!rolesValidos.includes(rol)) {
-      return reply.code(400).send({ error: `Rol inválido. Debe ser uno de: ${rolesValidos.join(", ")}` });
+    const validRoles = ["CLIENT", "WORKER", "ADMIN"];
+    if (!validRoles.includes(rol)) {
+      return reply.code(400).send({ error: `Invalid role. Must be one of: ${validRoles.join(", ")}` });
     }
 
-    const existe = await app.pg.query(
-      "SELECT id FROM auth.personas WHERE email = $1 OR rut = $2",
+    const exists = await app.pg.query(
+      "SELECT id FROM auth.people WHERE email = $1 OR rut = $2",
       [email, rut]
     );
-    if (existe.rows.length > 0) {
-      return reply.code(409).send({ error: "El email o RUT ya está registrado" });
+    if (exists.rows.length > 0) {
+      return reply.code(409).send({ error: "Email or RUT already registered" });
     }
 
     const client = await app.pg.connect();
     try {
       await client.query("BEGIN");
 
-      // 1. Crear persona base
-      const personaRes = await client.query(
-        `INSERT INTO auth.personas (rut, nombre, apellidos, email, fecha_nacimiento)
+      // 1. Create base people record
+      const peopleRes = await client.query(
+        `INSERT INTO auth.people (rut, first_name, last_name, email, birth_date)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [rut, nombre, apellidos, email, fecha_nacimiento || null]
+        [rut, first_name, last_name, email, birth_date || null]
       );
-      const personaId = personaRes.rows[0].id;
+      const peopleId = peopleRes.rows[0].id;
 
-      // 2. Siempre crear registro en auth.usuarios (necesario para el login)
+      // 2. Always create auth.user record (needed for login)
       await client.query(
-        "INSERT INTO auth.usuarios (persona_id, password) VALUES ($1, $2)",
-        [personaId, password]
+        "INSERT INTO auth.user (people_id, password) VALUES ($1, $2)",
+        [peopleId, password]
       );
 
-      // 3. Insertar en la tabla del rol correspondiente
-      if (rol === "TRABAJADOR") {
+      // 3. Insert into the corresponding role table
+      if (rol === "WORKER") {
         await client.query(
-          "INSERT INTO auth.trabajadores (persona_id, fecha_contratacion) VALUES ($1, $2)",
-          [personaId, fecha_contratacion || new Date()]
+          "INSERT INTO auth.worker (people_id, contract_date) VALUES ($1, $2)",
+          [peopleId, contract_date || new Date()]
         );
       } else if (rol === "ADMIN") {
         await client.query(
-          "INSERT INTO auth.administradores (persona_id) VALUES ($1)",
-          [personaId]
+          "INSERT INTO auth.admin (people_id) VALUES ($1)",
+          [peopleId]
         );
       }
-      // CLIENTE no necesita tabla extra
+      // CLIENT needs no extra table
 
       await client.query("COMMIT");
-      reply.code(201).send({ message: `Usuario con rol ${rol} creado correctamente.` });
+      reply.code(201).send({ message: `User with role ${rol} created successfully.` });
     } catch (err) {
       await client.query("ROLLBACK");
-      reply.code(500).send({ error: "Error al crear el usuario" });
+      reply.code(500).send({ error: "Error creating the user" });
     } finally {
       client.release();
     }

@@ -23,7 +23,7 @@ app.addHook("onRequest", async (req, reply) => {
   const publicRoutes = [
     "/api/auth/login",
     "/api/auth/health",
-    "/api/users/register",   // registro público de clientes
+    "/api/users/register",   // registro público de CLIENTs
     "/api/users/health",
   ];
 

@@ -1,28 +1,28 @@
 export default async function orderRoutes(app) {
 
   // ──────────────────────────────────────────────────────
-  // PRODUCTOS (todos los roles autenticados)
+  // PRODUCTS (all authenticated roles)
   // GET /productos
   // ──────────────────────────────────────────────────────
   app.get("/productos", async (req, reply) => {
     const result = await app.pg.query(
-      "SELECT id, nombre, descripcion, precio FROM products.products WHERE activo = true ORDER BY nombre"
+      "SELECT id, name, description, price FROM products.products WHERE active = true ORDER BY name"
     );
     reply.send(result.rows);
   });
 
   // ──────────────────────────────────────────────────────
-  // CLIENTE
-  // POST /pedidos            → crea un pedido con sus items
-  // GET  /pedidos/mi-activo  → pedido activo del cliente (PENDIENTE o EN_CAMINO)
-  // DELETE /pedidos/:id      → cliente cancela su pedido (solo si PENDIENTE)
+  // CLIENT
+  // POST /delivery            → creates an order with its items
+  // GET  /delivery/mi-activo  → active order of CLIENT (PENDING or EN_ROUTE)
+  // DELETE /delivery/:id      → CLIENT cancels their order (only if PENDING)
   // ──────────────────────────────────────────────────────
-  app.post("/pedidos", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
-    const { items } = req.body; // [{ product_id, cantidad }]
+  app.post("/delivery", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
+    const { items } = req.body; // [{ product_id, amount }]
 
     if (!items || items.length === 0) {
-      return reply.code(400).send({ error: "El pedido debe tener al menos un producto" });
+      return reply.code(400).send({ error: "The order must have at least one product" });
     }
 
     const client = await app.pg.connect();
@@ -30,85 +30,85 @@ export default async function orderRoutes(app) {
       await client.query("BEGIN");
 
       const orderRes = await client.query(
-        "INSERT INTO orders.orders (usuario_id, estado) VALUES ($1, 'PENDIENTE') RETURNING id",
-        [usuarioId]
+        "INSERT INTO orders.orders (user_id, state) VALUES ($1, 'PENDING') RETURNING id",
+        [userId]
       );
       const orderId = orderRes.rows[0].id;
 
       for (const item of items) {
         await client.query(
-          "INSERT INTO orders.order_items (order_id, product_id, cantidad) VALUES ($1, $2, $3)",
-          [orderId, item.product_id, item.cantidad]
+          "INSERT INTO orders.order_items (order_id, product_id, amount) VALUES ($1, $2, $3)",
+          [orderId, item.product_id, item.amount]
         );
       }
 
       await client.query("COMMIT");
-      reply.code(201).send({ id: orderId, estado: "PENDIENTE" });
+      reply.code(201).send({ id: orderId, state: "PENDING" });
     } catch (err) {
       await client.query("ROLLBACK");
-      reply.code(500).send({ error: "Error al crear el pedido" });
+      reply.code(500).send({ error: "Error creating the order" });
     } finally {
       client.release();
     }
   });
 
-  app.get("/pedidos/mi-activo", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.get("/delivery/mi-activo", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
 
     const result = await app.pg.query(`
       SELECT
         o.id,
-        o.estado,
+        o.state,
         o.created_at,
-        o.trabajador_lat,
-        o.trabajador_lng,
-        o.sucursal_lat,
-        o.sucursal_lng,
+        o.worker_lat,
+        o.worker_lng,
+        o.local_lat,
+        o.local_lng,
         json_agg(
           json_build_object(
-            'nombre',   pr.nombre,
-            'cantidad', oi.cantidad,
-            'precio',   pr.precio
+            'name',   pr.name,
+            'amount', oi.amount,
+            'price',  pr.price
           )
         ) AS items
       FROM orders.orders o
       LEFT JOIN orders.order_items oi ON oi.order_id = o.id
       LEFT JOIN products.products pr ON pr.id = oi.product_id
-      WHERE o.usuario_id = $1
-        AND o.estado IN ('PENDIENTE', 'EN_CAMINO')
+      WHERE o.user_id = $1
+        AND o.state IN ('PENDING', 'EN_ROUTE')
       GROUP BY o.id
       ORDER BY o.created_at DESC
       LIMIT 1
-    `, [usuarioId]);
+    `, [userId]);
 
     if (result.rows.length === 0) return reply.send(null);
     reply.send(result.rows[0]);
   });
 
-  app.delete("/pedidos/:id", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.delete("/delivery/:id", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
     const { id } = req.params;
 
     const check = await app.pg.query(
-      "SELECT estado, usuario_id FROM orders.orders WHERE id = $1",
+      "SELECT state, user_id FROM orders.orders WHERE id = $1",
       [id]
     );
 
     if (check.rows.length === 0)
-      return reply.code(404).send({ error: "Pedido no encontrado" });
+      return reply.code(404).send({ error: "Order not found" });
 
-    const pedido = check.rows[0];
+    const order = check.rows[0];
 
-    if (pedido.usuario_id !== usuarioId)
-      return reply.code(403).send({ error: "No autorizado" });
+    if (order.user_id !== userId)
+      return reply.code(403).send({ error: "Unauthorized" });
 
-    if (pedido.estado !== "PENDIENTE")
+    if (order.state !== "PENDING")
       return reply.code(409).send({
-        error: "El pedido ya fue tomado por un repartidor y no puede cancelarse",
+        error: "The order has already been taken by a worker and cannot be cancelled",
       });
 
     await app.pg.query(
-      "UPDATE orders.orders SET estado = 'CANCELADO', cancelado_en = NOW() WHERE id = $1",
+      "UPDATE orders.orders SET state = 'CANCELLED', canceled_at = NOW() WHERE id = $1",
       [id]
     );
 
@@ -116,99 +116,99 @@ export default async function orderRoutes(app) {
   });
 
   // ──────────────────────────────────────────────────────
-  // TRABAJADOR
-  // GET   /pedidos/pendientes   → lista pedidos sin trabajador asignado
-  // PATCH /pedidos/:id/aceptar  → trabajador toma el pedido (guarda coords)
+  // WORKER
+  // GET   /delivery/pendientes   → lists orders without assigned worker
+  // PATCH /delivery/:id/aceptar  → worker takes the order (saves coords)
   // ──────────────────────────────────────────────────────
-  app.get("/pedidos/pendientes", async (req, reply) => {
+  app.get("/delivery/pendientes", async (req, reply) => {
     const result = await app.pg.query(`
       SELECT
         o.id,
-        o.estado,
+        o.state,
         o.created_at,
-        p.email AS cliente_email,
+        p.email AS client_email,
         json_agg(
           json_build_object(
-            'nombre',   pr.nombre,
-            'cantidad', oi.cantidad,
-            'precio',   pr.precio
+            'name',   pr.name,
+            'amount', oi.amount,
+            'price',  pr.price
           )
         ) AS items
       FROM orders.orders o
-      JOIN auth.usuarios u ON u.id = o.usuario_id
-      JOIN auth.personas p ON p.id = u.persona_id
+      JOIN auth.user u ON u.id = o.user_id
+      JOIN auth.people p ON p.id = u.people_id
       LEFT JOIN orders.order_items oi ON oi.order_id = o.id
       LEFT JOIN products.products pr ON pr.id = oi.product_id
-      WHERE o.estado = 'PENDIENTE'
-        AND o.trabajador_id IS NULL
+      WHERE o.state = 'PENDING'
+        AND o.worker_id IS NULL
       GROUP BY o.id, p.email
       ORDER BY o.created_at ASC
     `);
     reply.send(result.rows);
   });
 
-  app.patch("/pedidos/:id/aceptar", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.patch("/delivery/:id/aceptar", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
     const { id } = req.params;
 
-    if (!usuarioId) {
-      return reply.code(401).send({ error: "Usuario no autenticado" });
+    if (!userId) {
+      return reply.code(401).send({ error: "User not authenticated" });
     }
 
-    // Coordenadas del trabajador y sucursal enviadas desde el frontend
-    const { trabajador_lat, trabajador_lng, sucursal_lat, sucursal_lng } = req.body || {};
+    // Worker and local coordinates sent from the frontend
+    const { worker_lat, worker_lng, local_lat, local_lng } = req.body || {};
 
     const client = await app.pg.connect();
     try {
       await client.query("BEGIN");
 
       const tRes = await client.query(
-        `SELECT t.id AS trabajador_id
-         FROM auth.trabajadores t
-         JOIN auth.usuarios u ON u.persona_id = t.persona_id
+        `SELECT t.id AS worker_id
+         FROM auth.worker t
+         JOIN auth.user u ON u.people_id = t.people_id
          WHERE u.id = $1
-           AND t.estado = true`,
-        [usuarioId]
+           AND t.state = true`,
+        [userId]
       );
 
       if (tRes.rows.length === 0) {
         await client.query("ROLLBACK");
-        return reply.code(403).send({ error: "No eres un trabajador registrado o tu cuenta está inactiva" });
+        return reply.code(403).send({ error: "You are not a registered worker or your account is inactive" });
       }
 
-      const trabajadorRealId = tRes.rows[0].trabajador_id;
+      const realWorkerId = tRes.rows[0].worker_id;
 
       const checkRes = await client.query(
-        "SELECT id, estado, trabajador_id FROM orders.orders WHERE id = $1",
+        "SELECT id, state, worker_id FROM orders.orders WHERE id = $1",
         [id]
       );
 
       if (checkRes.rows.length === 0) {
         await client.query("ROLLBACK");
-        return reply.code(404).send({ error: "Pedido no encontrado" });
+        return reply.code(404).send({ error: "Order not found" });
       }
 
-      const pedido = checkRes.rows[0];
+      const order = checkRes.rows[0];
 
-      if (pedido.estado !== "PENDIENTE" || pedido.trabajador_id !== null) {
+      if (order.state !== "PENDING" || order.worker_id !== null) {
         await client.query("ROLLBACK");
-        return reply.code(409).send({ error: "El pedido ya fue tomado por otro trabajador" });
+        return reply.code(409).send({ error: "The order has already been taken by another worker" });
       }
 
       const result = await client.query(
         `UPDATE orders.orders
-         SET trabajador_id  = $1,
-             estado         = 'EN_CAMINO',
-             trabajador_lat = $3,
-             trabajador_lng = $4,
-             sucursal_lat   = $5,
-             sucursal_lng   = $6
+         SET worker_id  = $1,
+             state      = 'EN_ROUTE',
+             worker_lat = $3,
+             worker_lng = $4,
+             local_lat  = $5,
+             local_lng  = $6
          WHERE id = $2
-         RETURNING id, estado`,
+         RETURNING id, state, worker_id`,
         [
-          trabajadorRealId, id,
-          trabajador_lat ?? null, trabajador_lng ?? null,
-          sucursal_lat   ?? null, sucursal_lng   ?? null,
+          realWorkerId, id,
+          worker_lat ?? null, worker_lng ?? null,
+          local_lat  ?? null, local_lng  ?? null,
         ]
       );
 
@@ -217,73 +217,73 @@ export default async function orderRoutes(app) {
 
     } catch (err) {
       await client.query("ROLLBACK");
-      console.error("Error al aceptar pedido:", err);
-      reply.code(500).send({ error: "Error interno al aceptar el pedido", detalle: err.message });
+      console.error("Error accepting order:", err);
+      reply.code(500).send({ error: "Internal error accepting the order", detail: err.message });
     } finally {
       client.release();
     }
   });
 
   // ──────────────────────────────────────────────────────
-  // TRABAJADOR: marcar pedido como entregado
-  // PATCH /pedidos/:id/entregar
+  // WORKER: mark order as delivered
+  // PATCH /delivery/:id/entregar
   // ──────────────────────────────────────────────────────
-  app.patch("/pedidos/:id/entregar", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.patch("/delivery/:id/entregar", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
     const { id } = req.params;
 
-    if (!usuarioId) {
-      return reply.code(401).send({ error: "Usuario no autenticado" });
+    if (!userId) {
+      return reply.code(401).send({ error: "User not authenticated" });
     }
 
     const client = await app.pg.connect();
     try {
       await client.query("BEGIN");
 
-      // Verificar que el usuario es un trabajador activo
+      // Verify the user is an active worker
       const tRes = await client.query(
-        `SELECT t.id AS trabajador_id
-         FROM auth.trabajadores t
-         JOIN auth.usuarios u ON u.persona_id = t.persona_id
-         WHERE u.id = $1 AND t.estado = true`,
-        [usuarioId]
+        `SELECT t.id AS worker_id
+         FROM auth.worker t
+         JOIN auth.user u ON u.people_id = t.people_id
+         WHERE u.id = $1 AND t.state = true`,
+        [userId]
       );
 
       if (tRes.rows.length === 0) {
         await client.query("ROLLBACK");
-        return reply.code(403).send({ error: "No eres un trabajador registrado o tu cuenta está inactiva" });
+        return reply.code(403).send({ error: "You are not a registered worker or your account is inactive" });
       }
 
-      const trabajadorRealId = tRes.rows[0].trabajador_id;
+      const realWorkerId = tRes.rows[0].worker_id;
 
-      // Verificar que el pedido existe, está EN_CAMINO y le pertenece a este trabajador
+      // Verify the order exists, is EN_ROUTE and belongs to this worker
       const checkRes = await client.query(
-        "SELECT id, estado, trabajador_id FROM orders.orders WHERE id = $1",
+        "SELECT id, state, worker_id FROM orders.orders WHERE id = $1",
         [id]
       );
 
       if (checkRes.rows.length === 0) {
         await client.query("ROLLBACK");
-        return reply.code(404).send({ error: "Pedido no encontrado" });
+        return reply.code(404).send({ error: "Order not found" });
       }
 
-      const pedido = checkRes.rows[0];
+      const order = checkRes.rows[0];
 
-      if (pedido.estado !== "EN_CAMINO") {
+      if (order.state !== "EN_ROUTE") {
         await client.query("ROLLBACK");
-        return reply.code(409).send({ error: "El pedido no está en camino" });
+        return reply.code(409).send({ error: "The order is not en route" });
       }
 
-      if (pedido.trabajador_id !== trabajadorRealId) {
+      if (order.worker_id !== realWorkerId) {
         await client.query("ROLLBACK");
-        return reply.code(403).send({ error: "Este pedido no te pertenece" });
+        return reply.code(403).send({ error: "This order does not belong to you" });
       }
 
       const result = await client.query(
         `UPDATE orders.orders
-         SET estado = 'ENTREGADO', entregado_at = NOW()
+         SET state = 'DELIVERED', delivery_at = NOW()
          WHERE id = $1
-         RETURNING id, estado`,
+         RETURNING id, state`,
         [id]
       );
 
@@ -291,48 +291,48 @@ export default async function orderRoutes(app) {
       reply.send(result.rows[0]);
     } catch (err) {
       await client.query("ROLLBACK");
-      console.error("Error al entregar pedido:", err);
-      reply.code(500).send({ error: "Error interno al entregar el pedido", detalle: err.message });
+      console.error("Error delivering order:", err);
+      reply.code(500).send({ error: "Internal error delivering the order", detail: err.message });
     } finally {
       client.release();
     }
   });
 
   // ──────────────────────────────────────────────────────
-  // CLIENTE: puntuar pedido entregado
-  // PATCH /pedidos/:id/puntuar
+  // CLIENT: rate delivered order
+  // PATCH /delivery/:id/puntuar
   // ──────────────────────────────────────────────────────
-  app.patch("/pedidos/:id/puntuar", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.patch("/delivery/:id/puntuar", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
     const { id } = req.params;
     const { rating } = req.body || {};
 
-    if (!usuarioId) {
-      return reply.code(401).send({ error: "Usuario no autenticado" });
+    if (!userId) {
+      return reply.code(401).send({ error: "User not authenticated" });
     }
 
-    // rating puede ser null (no quiso puntuar) o un número 0-5
+    // rating can be null (no rating given) or a number 0-5
     if (rating !== null && rating !== undefined && (rating < 0 || rating > 5)) {
-      return reply.code(400).send({ error: "La puntuación debe ser entre 0 y 5" });
+      return reply.code(400).send({ error: "Rating must be between 0 and 5" });
     }
 
     const check = await app.pg.query(
-      "SELECT estado, usuario_id FROM orders.orders WHERE id = $1",
+      "SELECT state, user_id FROM orders.orders WHERE id = $1",
       [id]
     );
 
     if (check.rows.length === 0) {
-      return reply.code(404).send({ error: "Pedido no encontrado" });
+      return reply.code(404).send({ error: "Order not found" });
     }
 
-    const pedido = check.rows[0];
+    const order = check.rows[0];
 
-    if (pedido.usuario_id !== usuarioId) {
-      return reply.code(403).send({ error: "Este pedido no te pertenece" });
+    if (order.user_id !== userId) {
+      return reply.code(403).send({ error: "This order does not belong to you" });
     }
 
-    if (pedido.estado !== "ENTREGADO") {
-      return reply.code(409).send({ error: "Solo se pueden puntuar pedidos entregados" });
+    if (order.state !== "DELIVERED") {
+      return reply.code(409).send({ error: "Only delivered orders can be rated" });
     }
 
     await app.pg.query(
@@ -344,22 +344,22 @@ export default async function orderRoutes(app) {
   });
 
   // ──────────────────────────────────────────────────────
-  // CLIENTE: pedido entregado reciente (para mostrar pantalla de puntuación)
-  // GET /pedidos/mi-entregado
+  // CLIENT: recently delivered order (to show rating screen)
+  // GET /delivery/mi-entregado
   // ──────────────────────────────────────────────────────
-  app.get("/pedidos/mi-entregado", async (req, reply) => {
-    const usuarioId = req.headers["x-user-id"];
+  app.get("/delivery/mi-entregado", async (req, reply) => {
+    const userId = req.headers["x-user-id"];
 
     const result = await app.pg.query(`
-      SELECT id, estado, entregado_at, rating
+      SELECT id, state, delivery_at, rating
       FROM orders.orders
-      WHERE usuario_id = $1
-        AND estado = 'ENTREGADO'
+      WHERE user_id = $1
+        AND state = 'DELIVERED'
         AND rating IS NULL
-        AND entregado_at > NOW() - INTERVAL '10 minutes'
-      ORDER BY entregado_at DESC
+        AND delivery_at > NOW() - INTERVAL '10 minutes'
+      ORDER BY delivery_at DESC
       LIMIT 1
-    `, [usuarioId]);
+    `, [userId]);
 
     if (result.rows.length === 0) return reply.send(null);
     reply.send(result.rows[0]);
@@ -367,102 +367,102 @@ export default async function orderRoutes(app) {
 
   // ──────────────────────────────────────────────────────
   // ADMIN
-  // GET /admin/usuarios
-  // GET /admin/trabajadores
-  // GET /admin/pedidos
+  // GET /admin/user
+  // GET /admin/worker
+  // GET /admin/delivery
   // ──────────────────────────────────────────────────────
-  app.get("/admin/usuarios", async (req, reply) => {
+  app.get("/admin/user", async (req, reply) => {
     const result = await app.pg.query(`
       SELECT
-        p.nombre,
-        p.apellidos,
+        p.first_name,
+        p.last_name,
         p.email,
         p.rut,
-        u.estado,
+        u.state,
         u.created_at
-      FROM auth.usuarios u
-      JOIN auth.personas p ON p.id = u.persona_id
+      FROM auth.user u
+      JOIN auth.people p ON p.id = u.people_id
       ORDER BY u.created_at DESC
     `);
     reply.send(result.rows);
   });
 
-  app.get("/admin/trabajadores", async (req, reply) => {
+  app.get("/admin/worker", async (req, reply) => {
     const result = await app.pg.query(`
       SELECT
-        p.nombre,
-        p.apellidos,
+        p.first_name,
+        p.last_name,
         p.email,
         p.rut,
-        t.disponible,
-        t.estado,
-        t.fecha_contratacion
-      FROM auth.trabajadores t
-      JOIN auth.personas p ON p.id = t.persona_id
-      ORDER BY p.nombre ASC
+        t.available,
+        t.state,
+        t.contract_date
+      FROM auth.worker t
+      JOIN auth.people p ON p.id = t.people_id
+      ORDER BY p.first_name ASC
     `);
     reply.send(result.rows);
   });
 
-  app.get("/admin/pedidos", async (req, reply) => {
+  app.get("/admin/delivery", async (req, reply) => {
     const result = await app.pg.query(`
       SELECT
         o.id,
-        o.estado,
+        o.state,
         o.created_at,
-        pc.email AS cliente_email,
-        pt.email AS trabajador_email
+        pc.email AS client_email,
+        pt.email AS worker_email
       FROM orders.orders o
-      JOIN auth.usuarios u ON u.id = o.usuario_id
-      JOIN auth.personas pc ON pc.id = u.persona_id
-      LEFT JOIN auth.trabajadores t ON t.id = o.trabajador_id
-      LEFT JOIN auth.personas pt ON pt.id = t.persona_id
+      JOIN auth.user u ON u.id = o.user_id
+      JOIN auth.people pc ON pc.id = u.people_id
+      LEFT JOIN auth.worker t ON t.id = o.worker_id
+      LEFT JOIN auth.people pt ON pt.id = t.people_id
       ORDER BY o.created_at DESC
     `);
     reply.send(result.rows);
   });
 
-  // ── ADMIN: eliminar pedido ──
-  app.delete("/admin/pedidos/:id", async (req, reply) => {
+  // ── ADMIN: delete order ──
+  app.delete("/admin/delivery/:id", async (req, reply) => {
     if (req.headers["x-user-rol"] !== "ADMIN")
-      return reply.code(403).send({ error: "Solo administradores pueden eliminar pedidos" });
+      return reply.code(403).send({ error: "Only administrators can delete orders" });
     const { id } = req.params;
     const check = await app.pg.query("SELECT id FROM orders.orders WHERE id = $1", [id]);
-    if (check.rows.length === 0) return reply.code(404).send({ error: "Pedido no encontrado" });
+    if (check.rows.length === 0) return reply.code(404).send({ error: "Order not found" });
     await app.pg.query("DELETE FROM orders.orders WHERE id = $1", [id]);
-    reply.send({ ok: true, mensaje: "Pedido eliminado correctamente" });
+    reply.send({ ok: true, message: "Order deleted successfully" });
   });
 
-  // ── ADMIN: eliminar usuario por email ──
-  app.delete("/admin/usuarios/:email", async (req, reply) => {
+  // ── ADMIN: delete user by email ──
+  app.delete("/admin/user/:email", async (req, reply) => {
     if (req.headers["x-user-rol"] !== "ADMIN")
-      return reply.code(403).send({ error: "Solo administradores pueden eliminar usuarios" });
+      return reply.code(403).send({ error: "Only administrators can delete users" });
     const { email } = req.params;
 
-    const personaRes = await app.pg.query("SELECT id FROM auth.personas WHERE email = $1", [email]);
-    if (personaRes.rows.length === 0) return reply.code(404).send({ error: "Usuario no encontrado" });
-    const personaId = personaRes.rows[0].id;
+    const peopleRes = await app.pg.query("SELECT id FROM auth.people WHERE email = $1", [email]);
+    if (peopleRes.rows.length === 0) return reply.code(404).send({ error: "User not found" });
+    const peopleId = peopleRes.rows[0].id;
 
-    const usuarioRes = await app.pg.query("SELECT id FROM auth.usuarios WHERE persona_id = $1", [personaId]);
-    if (usuarioRes.rows.length === 0) return reply.code(404).send({ error: "Usuario no encontrado" });
-    const usuarioId = usuarioRes.rows[0].id;
+    const userRes = await app.pg.query("SELECT id FROM auth.user WHERE people_id = $1", [peopleId]);
+    if (userRes.rows.length === 0) return reply.code(404).send({ error: "User not found" });
+    const userId = userRes.rows[0].id;
 
-    const esAdmin = await app.pg.query("SELECT id FROM auth.administradores WHERE persona_id = $1", [personaId]);
-    if (esAdmin.rows.length > 0)
-      return reply.code(403).send({ error: "No se puede eliminar a un administrador" });
+    const isAdmin = await app.pg.query("SELECT id FROM auth.admin WHERE people_id = $1", [peopleId]);
+    if (isAdmin.rows.length > 0)
+      return reply.code(403).send({ error: "Cannot delete an administrator" });
 
     const client = await app.pg.connect();
     try {
       await client.query("BEGIN");
-      await client.query("DELETE FROM orders.orders WHERE usuario_id = $1", [usuarioId]);
-      await client.query("DELETE FROM auth.trabajadores WHERE persona_id = $1", [personaId]);
-      await client.query("DELETE FROM auth.usuarios WHERE persona_id = $1", [personaId]);
-      await client.query("DELETE FROM auth.personas WHERE id = $1", [personaId]);
+      await client.query("DELETE FROM orders.orders WHERE user_id = $1", [userId]);
+      await client.query("DELETE FROM auth.worker WHERE people_id = $1", [peopleId]);
+      await client.query("DELETE FROM auth.user WHERE people_id = $1", [peopleId]);
+      await client.query("DELETE FROM auth.people WHERE id = $1", [peopleId]);
       await client.query("COMMIT");
-      reply.send({ ok: true, mensaje: "Usuario eliminado correctamente" });
+      reply.send({ ok: true, message: "User deleted successfully" });
     } catch (err) {
       await client.query("ROLLBACK");
-      reply.code(500).send({ error: "Error interno al eliminar el usuario", detalle: err.message });
+      reply.code(500).send({ error: "Internal error deleting the user", detail: err.message });
     } finally {
       client.release();
     }

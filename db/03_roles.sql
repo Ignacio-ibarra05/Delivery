@@ -1,27 +1,27 @@
--- TRABAJADORES (REPARTIDORES)
-CREATE TABLE auth.trabajadores (
+-- worker (REPARTIDORES)
+CREATE TABLE auth.worker (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  persona_id UUID NOT NULL,
-  disponible BOOLEAN DEFAULT TRUE,
-  estado BOOLEAN DEFAULT TRUE,
-  fecha_contratacion DATE,
+  people_id UUID NOT NULL,
+  available BOOLEAN DEFAULT TRUE,
+  state BOOLEAN DEFAULT TRUE,
+  contract_date DATE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_trabajador_persona
-    FOREIGN KEY (persona_id)
-    REFERENCES auth.personas(id)
+  CONSTRAINT fk_worker_people
+    FOREIGN KEY (people_id)
+    REFERENCES auth.people(id)
     ON DELETE CASCADE
 );
 
 -- ADMINISTRADORES
-CREATE TABLE auth.administradores (
+CREATE TABLE auth.admin (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  persona_id UUID NOT NULL,
-  estado BOOLEAN DEFAULT TRUE,
+  people_id UUID NOT NULL,
+  state BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_admin_persona
-    FOREIGN KEY (persona_id)
-    REFERENCES auth.personas(id)
+  CONSTRAINT fk_admin_people
+    FOREIGN KEY (people_id)
+    REFERENCES auth.people(id)
     ON DELETE CASCADE
 );

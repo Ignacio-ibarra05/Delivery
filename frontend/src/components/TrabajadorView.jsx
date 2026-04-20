@@ -1,35 +1,29 @@
 import { useState, useEffect, useRef } from "react";
-import { getPedidosPendientes, aceptarPedidoConCoords, entregarPedido } from "../api";
+import { getdeliveryPendientes, aceptarPedidoConCoords, entregarPedido } from "../api";
 
 // ── Ubicación base del repartidor (Costanera Center, Santiago) ──
 const TRABAJADOR_LAT = -33.4172;
 const TRABAJADOR_LNG = -70.6065;
 const TRABAJADOR_LUGAR = "Costanera Center";
 
-// ── Ubicación base del cliente (Parque Titanium) ──
-const CLIENTE_LAT = -33.4197;
-const CLIENTE_LNG = -70.6058;
-const CLIENTE_LUGAR = "Parque Titanium";
+// ── Ubicación base del CLIENT (Parque Titanium) ──
+const CLIENT_LAT = -33.4197;
+const CLIENT_LNG = -70.6058;
+const CLIENT_LUGAR = "Parque Titanium";
 
-// ── Restaurantes (mismos que ClienteView) ──
+// ── Restaurantes (mismos que CLIENTView) ──
 const RESTAURANTES = [
-  { id: "r1", nombre: "La Piazza Roma", lat: -33.4175, lng: -70.6080 },
-  { id: "r2", nombre: "Burger House",   lat: -33.4210, lng: -70.6030 },
-  { id: "r3", nombre: "Wok & Roll",     lat: -33.4165, lng: -70.6045 },
+  { id: "r1", first_name: "La Piazza Roma", lat: -33.4175, lng: -70.6080 },
+  { id: "r2", first_name: "Burger House",   lat: -33.4210, lng: -70.6030 },
+  { id: "r3", first_name: "Wok & Roll",     lat: -33.4165, lng: -70.6045 },
 ];
 
-// FIX #2: Determina el restaurante correcto según el pedido.
-// Los pedidos no tienen campo restaurante_id en la BD actual, por lo que
-// se usa el primer restaurante como fallback. En el futuro, cuando se agregue
-// restaurante_id al pedido, se puede cambiar este lookup.
 function getSucursalParaPedido(pedido) {
-  // Si el pedido tiene sucursal_lat/lng guardados (al aceptar), los usamos para
-  // comparar y encontrar el restaurante más cercano
-  if (pedido.sucursal_lat && pedido.sucursal_lng) {
+  if (pedido.local_lat && pedido.local_lng) {
     let closest = RESTAURANTES[0];
     let minDist = Infinity;
     RESTAURANTES.forEach(r => {
-      const d = Math.abs(r.lat - Number(pedido.sucursal_lat)) + Math.abs(r.lng - Number(pedido.sucursal_lng));
+      const d = Math.abs(r.lat - Number(pedido.local_lat)) + Math.abs(r.lng - Number(pedido.local_lng));
       if (d < minDist) { minDist = d; closest = r; }
     });
     return closest;
@@ -45,8 +39,8 @@ function distanciaKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ── Mapa de ruta (reutilizable) ──
-function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, clienteLat, clienteLng, sucursalNombre, height = 300 }) {
+// ── Mapa de ruta ──
+function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, CLIENTLat, CLIENTLng, sucursalfirst_name, height = 300 }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
@@ -55,7 +49,7 @@ function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, clie
       if (!window.L || !mapRef.current || mapInstanceRef.current) return;
       const L = window.L;
       const map = L.map(mapRef.current, {
-        center: [(trabajadorLat + clienteLat) / 2, (trabajadorLng + clienteLng) / 2],
+        center: [(trabajadorLat + CLIENTLat) / 2, (trabajadorLng + CLIENTLng) / 2],
         zoom: 14,
       });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -64,14 +58,14 @@ function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, clie
       const mkStyle = (bg, emoji) =>
         L.divIcon({ className: "", html: `<div style="background:${bg};color:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:22px;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.25);">${emoji}</div>`, iconSize:[44,44], iconAnchor:[22,22] });
       L.marker([trabajadorLat, trabajadorLng], { icon: mkStyle("#f4a261","🛵") }).addTo(map).bindPopup(`<b>Tu posición</b><br>${TRABAJADOR_LUGAR}`).openPopup();
-      L.marker([sucursalLat, sucursalLng],     { icon: mkStyle("#2d6a4f","🍽️") }).addTo(map).bindPopup(`<b>${sucursalNombre}</b><br>Punto de recogida`);
-      L.marker([clienteLat, clienteLng],        { icon: mkStyle("#e63946","📦") }).addTo(map).bindPopup(`<b>Destino del cliente</b><br>${CLIENTE_LUGAR}`);
+      L.marker([sucursalLat, sucursalLng],     { icon: mkStyle("#2d6a4f","🍽️") }).addTo(map).bindPopup(`<b>${sucursalfirst_name}</b><br>Punto de recogida`);
+      L.marker([CLIENTLat, CLIENTLng],        { icon: mkStyle("#e63946","📦") }).addTo(map).bindPopup(`<b>Destino del CLIENT</b><br>${CLIENT_LUGAR}`);
       if (L.Routing) {
-        L.Routing.control({ waypoints:[L.latLng(trabajadorLat,trabajadorLng),L.latLng(sucursalLat,sucursalLng),L.latLng(clienteLat,clienteLng)], routeWhileDragging:false, addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:true, show:false, createMarker:()=>null, lineOptions:{styles:[{color:"#f4a261",weight:5,opacity:0.85}]}, router:L.Routing.osrmv1({serviceUrl:"https://router.project-osrm.org/route/v1",profile:"driving"}) }).addTo(map);
+        L.Routing.control({ waypoints:[L.latLng(trabajadorLat,trabajadorLng),L.latLng(sucursalLat,sucursalLng),L.latLng(CLIENTLat,CLIENTLng)], routeWhileDragging:false, addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:true, show:false, createMarker:()=>null, lineOptions:{styles:[{color:"#f4a261",weight:5,opacity:0.85}]}, router:L.Routing.osrmv1({serviceUrl:"https://router.project-osrm.org/route/v1",profile:"driving"}) }).addTo(map);
       } else {
-        L.polyline([[trabajadorLat,trabajadorLng],[sucursalLat,sucursalLng],[clienteLat,clienteLng]],{color:"#f4a261",weight:5,opacity:0.85,dashArray:"10,6",lineCap:"round"}).addTo(map);
+        L.polyline([[trabajadorLat,trabajadorLng],[sucursalLat,sucursalLng],[CLIENTLat,CLIENTLng]],{color:"#f4a261",weight:5,opacity:0.85,dashArray:"10,6",lineCap:"round"}).addTo(map);
       }
-      map.fitBounds([[trabajadorLat,trabajadorLng],[sucursalLat,sucursalLng],[clienteLat,clienteLng]],{padding:[40,40]});
+      map.fitBounds([[trabajadorLat,trabajadorLng],[sucursalLat,sucursalLng],[CLIENTLat,CLIENTLng]],{padding:[40,40]});
       mapInstanceRef.current = map;
     }
     if (window.L) initMap();
@@ -84,8 +78,8 @@ function MapaRuta({ trabajadorLat, trabajadorLng, sucursalLat, sucursalLng, clie
       <div ref={mapRef} style={{ width:"100%", height }} />
       <div style={rm.leyenda}>
         <span style={rm.leyItem}><span style={{...rm.dot,background:"#f4a261"}}/> Tu posición ({TRABAJADOR_LUGAR})</span>
-        <span style={rm.leyItem}><span style={{...rm.dot,background:"#2d6a4f"}}/> {sucursalNombre}</span>
-        <span style={rm.leyItem}><span style={{...rm.dot,background:"#e63946"}}/> Cliente ({CLIENTE_LUGAR})</span>
+        <span style={rm.leyItem}><span style={{...rm.dot,background:"#2d6a4f"}}/> {sucursalfirst_name}</span>
+        <span style={rm.leyItem}><span style={{...rm.dot,background:"#e63946"}}/> CLIENT ({CLIENT_LUGAR})</span>
       </div>
     </div>
   );
@@ -107,17 +101,16 @@ function EntregadoView({ onVolver }) {
   );
 }
 
-// ── FIX #1: Pantalla completa con mapa que se muestra tras aceptar ──
 function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
   const [entregando, setEntregando] = useState(false);
   const [entregado, setEntregado] = useState(false);
   const [error, setError] = useState("");
-  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.precio||0)*i.cantidad,0) : 0;
-  const distTotal = distanciaKm(TRABAJADOR_LAT, TRABAJADOR_LNG, CLIENTE_LAT, CLIENTE_LNG);
+  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0) : 0;
+  const distTotal = distanciaKm(TRABAJADOR_LAT, TRABAJADOR_LNG, CLIENT_LAT, CLIENT_LNG);
   const tiempoEst = Math.round((distTotal / 20) * 60);
 
   async function handleEntregar() {
-    if (!confirm("¿Confirmas que ya entregaste el pedido al cliente?")) return;
+    if (!confirm("¿Confirmas que ya entregaste el pedido al CLIENT?")) return;
     setEntregando(true);
     setError("");
     try {
@@ -147,7 +140,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
 
       <div style={ac.rutaCard}>
         <div style={ac.rutaSteps}>
-          {[["#f4a261","🛵","Tu posición",TRABAJADOR_LUGAR],["#2d6a4f","🍽️","Recoger en",sucursal.nombre],["#e63946","📦","Entregar en",CLIENTE_LUGAR]].map(([bg,em,lbl,val],i,arr)=>(
+          {[["#f4a261","🛵","Tu posición",TRABAJADOR_LUGAR],["#2d6a4f","🍽️","Recoger en",sucursal.first_name],["#e63946","📦","Entregar en",CLIENT_LUGAR]].map(([bg,em,lbl,val],i,arr)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={ac.step}>
                 <div style={{...ac.stepDot,background:bg}}>{em}</div>
@@ -168,7 +161,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
         <div style={ac.resumenCard}>
           <p style={ac.resumenTit}>Detalle del pedido</p>
           {pedido.items.map((item,i)=>(
-            <div key={i} style={ac.resumenRow}><span>{item.nombre} ×{item.cantidad}</span><span style={ac.resumenPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>
+            <div key={i} style={ac.resumenRow}><span>{item.name} ×{item.amount}</span><span style={ac.resumenPrecio}>${((item.price||0)*item.amount).toLocaleString("es-CL")}</span></div>
           ))}
           <div style={ac.resumenTotal}><span>Total</span><strong>${totalPedido.toLocaleString("es-CL")}</strong></div>
         </div>
@@ -177,14 +170,14 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
       <MapaRuta
         trabajadorLat={TRABAJADOR_LAT} trabajadorLng={TRABAJADOR_LNG}
         sucursalLat={sucursal.lat} sucursalLng={sucursal.lng}
-        clienteLat={CLIENTE_LAT} clienteLng={CLIENTE_LNG}
-        sucursalNombre={sucursal.nombre} height={420}
+        CLIENTLat={CLIENT_LAT} CLIENTLng={CLIENT_LNG}
+        sucursalfirst_name={sucursal.first_name} height={420}
       />
 
       {error && <div style={{background:"#fff0f0",color:"#c0392b",borderRadius:8,padding:"10px 14px",fontSize:13}}>{error}</div>}
 
       <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-        <button onClick={onNuevoPedido} style={ac.nuevoBtn}>← Volver a pedidos disponibles</button>
+        <button onClick={onNuevoPedido} style={ac.nuevoBtn}>← Volver a delivery disponibles</button>
         <button onClick={handleEntregar} disabled={entregando} style={ac.entregarBtn}>
           {entregando ? "Registrando entrega…" : "📦 Entregar pedido"}
         </button>
@@ -196,8 +189,8 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
 // ── Modal con detalle y preview de ruta ──
 function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
   const sucursal = getSucursalParaPedido(pedido);
-  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.precio||0)*i.cantidad,0) : 0;
-  const distTotal = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENTE_LAT,CLIENTE_LNG);
+  const totalPedido = pedido.items ? pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0) : 0;
+  const distTotal = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENT_LAT,CLIENT_LNG);
   const tiempoEst = Math.round((distTotal/20)*60);
 
   return (
@@ -209,15 +202,15 @@ function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
         </div>
         <div style={mo.modalBody}>
           <div style={mo.seccion}>
-            <p style={mo.secLabel}>Cliente</p>
-            <p style={mo.secValor}>{pedido.cliente_nombre||pedido.cliente_email}</p>
-            <p style={mo.secSub}>{pedido.cliente_email}</p>
-            <p style={mo.secSub}>📍 {CLIENTE_LUGAR}</p>
+            <p style={mo.secLabel}>CLIENT</p>
+            <p style={mo.secValor}>{pedido.client_first_name||pedido.client_email}</p>
+            <p style={mo.secSub}>{pedido.client_email}</p>
+            <p style={mo.secSub}> {CLIENT_LUGAR}</p>
           </div>
           {pedido.items&&pedido.items.length>0&&(
             <div style={mo.seccion}>
               <p style={mo.secLabel}>Detalle del pedido</p>
-              <div style={mo.itemsList}>{pedido.items.map((item,i)=><div key={i} style={mo.itemRow}><span>{item.nombre} ×{item.cantidad}</span><span style={mo.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>
+              <div style={mo.itemsList}>{pedido.items.map((item,i)=><div key={i} style={mo.itemRow}><span>{item.name} ×{item.cantidad}</span><span style={mo.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>
               <div style={mo.totalRow}><span style={mo.totalLabel}>Total</span><strong style={mo.totalValor}>${totalPedido.toLocaleString("es-CL")}</strong></div>
             </div>
           )}
@@ -231,13 +224,13 @@ function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
             <MapaRuta
               trabajadorLat={TRABAJADOR_LAT} trabajadorLng={TRABAJADOR_LNG}
               sucursalLat={sucursal.lat} sucursalLng={sucursal.lng}
-              clienteLat={CLIENTE_LAT} clienteLng={CLIENTE_LNG}
-              sucursalNombre={sucursal.nombre} height={300}
+              CLIENTLat={CLIENT_LAT} CLIENTLng={CLIENT_LNG}
+              sucursalfirst_name={sucursal.first_name} height={300}
             />
           </div>
         </div>
         <div style={mo.modalFooter}>
-          <button onClick={()=>onIgnorar(pedido.id)} style={mo.ignorarBtn}>✗ Ignorar pedido</button>
+          <button onClick={()=>onIgnorar(pedido.id)} style={mo.ignorarBtn}>Ignorar pedido</button>
           <button onClick={()=>onAceptar(pedido)} disabled={aceptando} style={mo.aceptarBtn}>{aceptando?"Aceptando…":"Aceptar y tomar pedido"}</button>
         </div>
       </div>
@@ -247,46 +240,43 @@ function ModalPedido({ pedido, onCerrar, onAceptar, onIgnorar, aceptando }) {
 
 // ── Vista principal del trabajador ──
 export default function TrabajadorView({ email, onLogout }) {
-  const [pedidos, setPedidos] = useState([]);
+  const [delivery, setdelivery] = useState([]);
   const [loading, setLoading] = useState(true);
   const [aceptando, setAceptando] = useState(null);
   const [error, setError] = useState("");
   const [pedidoDetalle, setPedidoDetalle] = useState(null);
   const [ignorados, setIgnorados] = useState(new Set());
-  // FIX #1: estado para la pantalla de entrega activa
   const [pedidoActivo, setPedidoActivo] = useState(null);
   const [sucursalActiva, setSucursalActiva] = useState(null);
 
-  async function cargarPedidos() {
+  async function cargardelivery() {
     setLoading(true);
     try {
-      const data = await getPedidosPendientes();
+      const data = await getdeliveryPendientes();
       if (data.error) { setError(data.error); return; }
-      setPedidos(data);
-    } catch { setError("No se pudieron cargar los pedidos."); }
+      setdelivery(data);
+    } catch { setError("No se pudieron cargar los delivery."); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { cargarPedidos(); }, []);
+  useEffect(() => { cargardelivery(); }, []);
 
-  // FIX #1 + #2: acepta el pedido y redirige al mapa con la sucursal correcta
   async function handleAceptar(pedidoOrId) {
-    const pedidoObj = typeof pedidoOrId === "object" ? pedidoOrId : pedidos.find(p=>p.id===pedidoOrId);
+    const pedidoObj = typeof pedidoOrId === "object" ? pedidoOrId : delivery.find(p=>p.id===pedidoOrId);
     const id = pedidoObj?.id ?? pedidoOrId;
     setAceptando(id);
     try {
       const sucursal = getSucursalParaPedido(pedidoObj || {});
       const res = await aceptarPedidoConCoords(id, {
-        trabajador_lat: TRABAJADOR_LAT,
-        trabajador_lng: TRABAJADOR_LNG,
-        sucursal_lat: sucursal.lat,
-        sucursal_lng: sucursal.lng,
+        worker_lat: TRABAJADOR_LAT,
+        worker_lng: TRABAJADOR_LNG,
+        local_lat: sucursal.lat,
+        local_lng: sucursal.lng,
       });
       if (res.error) { setError(res.error); return; }
-      setPedidos(prev => prev.filter(p => p.id !== id));
+      setdelivery(prev => prev.filter(p => p.id !== id));
       setPedidoDetalle(null);
-      // FIX #1: redirigir a pantalla con mapa
-      setPedidoActivo(pedidoObj);
+      setPedidoActivo({ ...pedidoObj, ...res });
       setSucursalActiva(sucursal);
     } catch { setError("Error al aceptar el pedido."); }
     finally { setAceptando(null); }
@@ -294,7 +284,6 @@ export default function TrabajadorView({ email, onLogout }) {
 
   function handleIgnorar(id) { setIgnorados(prev => new Set([...prev, id])); setPedidoDetalle(null); }
 
-  // FIX #1: Si hay pedido activo, mostrar pantalla de entrega con mapa completo
   if (pedidoActivo && sucursalActiva) {
     return (
       <div style={s.page}>
@@ -307,12 +296,12 @@ export default function TrabajadorView({ email, onLogout }) {
             </div>
           </div>
         </header>
-        <PedidoAceptadoView pedido={pedidoActivo} sucursal={sucursalActiva} onNuevoPedido={()=>{ setPedidoActivo(null); setSucursalActiva(null); cargarPedidos(); }} />
+        <PedidoAceptadoView pedido={pedidoActivo} sucursal={sucursalActiva} onNuevoPedido={()=>{ setPedidoActivo(null); setSucursalActiva(null); cargardelivery(); }} />
       </div>
     );
   }
 
-  const pedidosVisibles = pedidos.filter(p => !ignorados.has(p.id));
+  const deliveryVisibles = delivery.filter(p => !ignorados.has(p.id));
 
   return (
     <div style={s.page}>
@@ -327,28 +316,28 @@ export default function TrabajadorView({ email, onLogout }) {
       </header>
       <div style={s.container}>
         <div style={s.topBar}>
-          <h2 style={s.title}>Pedidos disponibles</h2>
-          <button onClick={cargarPedidos} style={s.refreshBtn}>↻ Actualizar</button>
+          <h2 style={s.title}>delivery disponibles</h2>
+          <button onClick={cargardelivery} style={s.refreshBtn}>↻ Actualizar</button>
         </div>
         {ignorados.size>0&&<div style={s.ignoradosBanner}><span>Has ignorado {ignorados.size} pedido{ignorados.size>1?"s":""} — siguen disponibles para otros repartidores.</span><button onClick={()=>setIgnorados(new Set())} style={s.mostrarIgnoradosBtn}>Mostrar todos</button></div>}
         {error&&<div style={s.errorBox}>{error}</div>}
-        {loading ? <p style={s.muted}>Cargando pedidos…</p> : pedidosVisibles.length===0 ? (
-          <div style={s.emptyState}><p style={s.emptyText}>No hay pedidos pendientes en este momento.</p><p style={s.emptySubtext}>Haz clic en "Actualizar" para verificar de nuevo.</p></div>
+        {loading ? <p style={s.muted}>Cargando delivery…</p> : deliveryVisibles.length===0 ? (
+          <div style={s.emptyState}><p style={s.emptyText}>No hay delivery pendientes en este momento.</p><p style={s.emptySubtext}>Haz clic en "Actualizar" para verificar de nuevo.</p></div>
         ) : (
           <div style={s.list}>
-            {pedidosVisibles.map(pedido=>{
-              const total = pedido.items?pedido.items.reduce((s,i)=>s+(i.precio||0)*i.cantidad,0):0;
-              const dist = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENTE_LAT,CLIENTE_LNG);
+            {deliveryVisibles.map(pedido=>{
+              const total = pedido.items?pedido.items.reduce((s,i)=>s+(i.price||0)*i.amount,0):0;
+              const dist = distanciaKm(TRABAJADOR_LAT,TRABAJADOR_LNG,CLIENT_LAT,CLIENT_LNG);
               const tEst = Math.round((dist/20)*60);
               return (
                 <div key={pedido.id} style={s.card} onClick={()=>setPedidoDetalle(pedido)}>
                   <div style={s.cardHeader}><div><p style={s.pedidoId}>Pedido #{pedido.id.slice(0,8).toUpperCase()}</p><p style={s.pedidoFecha}>{new Date(pedido.created_at).toLocaleString("es-CL")}</p></div><span style={s.badge}>PENDIENTE</span></div>
                   <div style={s.cardBody}>
                     <div style={s.cardRow}>
-                      <div><p style={s.clienteLabel}>Cliente</p><p style={s.clienteEmail}>{pedido.cliente_nombre||pedido.cliente_email}</p></div>
+                      <div><p style={s.CLIENTLabel}>CLIENT</p><p style={s.CLIENTEmail}>{pedido.client_first_name||pedido.client_email}</p></div>
                       {total>0&&<div style={s.totalBadge}><p style={s.totalLabel}>Total</p><p style={s.totalValor}>${total.toLocaleString("es-CL")}</p></div>}
                     </div>
-                    {pedido.items&&pedido.items.length>0&&<div style={s.items}>{pedido.items.map((item,i)=><div key={i} style={s.itemRow}><span>{item.nombre} ×{item.cantidad}</span><span style={s.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>}
+                    {pedido.items&&pedido.items.length>0&&<div style={s.items}>{pedido.items.map((item,i)=><div key={i} style={s.itemRow}><span>{item.name} ×{item.cantidad}</span><span style={s.itemPrecio}>${((item.precio||0)*item.cantidad).toLocaleString("es-CL")}</span></div>)}</div>}
                     <div style={s.rutaResumen}><span style={s.rutaTag}>{dist.toFixed(2)}km · ~{tEst} min</span><span style={s.verRutaLink}>Ver ruta en mapa →</span></div>
                   </div>
                   <div style={s.cardFooter}>
@@ -370,4 +359,4 @@ export default function TrabajadorView({ email, onLogout }) {
 const rm={mapaWrap:{background:"#f9f9f6",borderRadius:12,overflow:"hidden",border:"1px solid #e8e8e2",marginTop:12},mapaTitle:{padding:"10px 16px",fontWeight:700,fontSize:13,color:"#555",borderBottom:"1px solid #e8e8e2"},leyenda:{display:"flex",gap:16,padding:"10px 16px",borderTop:"1px solid #e8e8e2",flexWrap:"wrap"},leyItem:{display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#666"},dot:{width:8,height:8,borderRadius:"50%",display:"inline-block"}};
 const mo={overlay:{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16},modal:{background:"#fff",borderRadius:16,width:"100%",maxWidth:600,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"},modalHeader:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"20px 24px",borderBottom:"1px solid #f0f0f0"},modalId:{margin:"0 0 4px",fontWeight:800,fontSize:18,color:"#1a1a1a"},modalFecha:{margin:0,fontSize:12,color:"#aaa"},closeBtn:{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#888",padding:"4px 8px"},modalBody:{padding:"0 24px 8px"},seccion:{padding:"16px 0",borderBottom:"1px solid #f5f5f2"},secLabel:{margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#aaa",textTransform:"uppercase",letterSpacing:0.8},secValor:{margin:"0 0 2px",fontSize:15,fontWeight:700,color:"#1a1a1a"},secSub:{margin:"0 0 2px",fontSize:13,color:"#666"},itemsList:{background:"#f9f9f6",borderRadius:8,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6},itemRow:{display:"flex",justifyContent:"space-between",fontSize:13,color:"#444"},itemPrecio:{fontWeight:600,color:"#2d6a4f"},totalRow:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,padding:"10px 14px",background:"#f0fdf4",borderRadius:8,border:"1px solid #bbf7d0"},totalLabel:{margin:0,fontSize:13,fontWeight:600,color:"#166534"},totalValor:{fontSize:20,color:"#166534"},rutaInfo:{display:"flex",alignItems:"center",background:"#f9f9f6",borderRadius:10,overflow:"hidden",border:"1px solid #e8e8e2"},rutaDato:{flex:1,display:"flex",alignItems:"center",gap:10,padding:"12px 16px"},rutaNum:{margin:"0 0 2px",fontWeight:800,fontSize:18,color:"#1a1a1a"},rutaSub:{margin:0,fontSize:11,color:"#888"},rutaDivider:{width:1,height:40,background:"#e8e8e2"},modalFooter:{display:"flex",gap:10,padding:"16px 24px",borderTop:"1px solid #f0f0f0"},ignorarBtn:{flex:1,padding:"10px",background:"#fff5f5",color:"#c0392b",border:"1.5px solid #fecaca",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},aceptarBtn:{flex:2,padding:"10px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14}};
 const ac={container:{maxWidth:800,margin:"0 auto",padding:32,display:"flex",flexDirection:"column",gap:20},confirmBanner:{display:"flex",alignItems:"center",gap:16,background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:14,padding:"20px 24px"},checkIcon:{fontSize:28,background:"#2d6a4f",color:"#fff",borderRadius:"50%",width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900},confirmTitle:{margin:"0 0 4px",fontWeight:800,fontSize:20,color:"#1a1a1a"},confirmSub:{margin:0,fontSize:13,color:"#666"},rutaCard:{background:"#fff",borderRadius:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)",overflow:"hidden"},rutaSteps:{display:"flex",alignItems:"center",justifyContent:"space-around",padding:"20px 24px",flexWrap:"wrap",gap:8},step:{display:"flex",alignItems:"center",gap:10},stepDot:{width:44,height:44,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:"3px solid #fff",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"},stepLabel:{margin:"0 0 2px",fontSize:11,color:"#aaa",textTransform:"uppercase",fontWeight:700,letterSpacing:0.5},stepVal:{margin:0,fontSize:14,fontWeight:700,color:"#1a1a1a"},arrow:{fontSize:22,color:"#ccc",fontWeight:700},rutaStats:{display:"flex",alignItems:"center",borderTop:"1px solid #f0f0f0",padding:"14px 24px"},stat:{flex:1,textAlign:"center"},statNum:{margin:"0 0 4px",fontWeight:800,fontSize:22,color:"#1a1a1a"},statLabel:{margin:0,fontSize:12,color:"#888"},statDiv:{width:1,height:40,background:"#e8e8e2"},resumenCard:{background:"#fff",borderRadius:14,padding:"20px 24px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"},resumenTit:{margin:"0 0 14px",fontWeight:700,fontSize:15,color:"#1a1a1a"},resumenRow:{display:"flex",justifyContent:"space-between",fontSize:13,color:"#444",padding:"6px 0",borderBottom:"1px solid #f5f5f5"},resumenPrecio:{fontWeight:600,color:"#2d6a4f"},resumenTotal:{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700,marginTop:12,paddingTop:12,borderTop:"2px solid #1a1a1a"},nuevoBtn:{alignSelf:"flex-start",background:"#fff",border:"1.5px solid #e0e0e0",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontWeight:600,fontSize:14,color:"#555"},entregarBtn:{padding:"12px 28px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:15,boxShadow:"0 2px 10px rgba(45,106,79,0.3)"}};
-const s={page:{minHeight:"100vh",background:"#f7f7f3",fontFamily:"'Segoe UI',sans-serif"},header:{background:"#1a1a1a",color:"#fff",padding:"0 32px",height:56,display:"flex",alignItems:"center"},headerInner:{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center"},headerLogo:{fontWeight:700,fontSize:18},headerRight:{display:"flex",alignItems:"center",gap:16},trabajadorInfo:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2},trabajadorLoc:{fontSize:11,color:"#f4a261",fontWeight:600},headerEmail:{fontSize:13,color:"#aaa"},logoutBtn:{background:"none",border:"1px solid #555",color:"#ccc",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:13},container:{maxWidth:760,margin:"0 auto",padding:32},topBar:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24},title:{margin:0,fontSize:22,fontWeight:700,color:"#1a1a1a"},refreshBtn:{background:"#fff",border:"1.5px solid #e0e0e0",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:14,fontWeight:600},ignoradosBanner:{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:13,color:"#92400e"},mostrarIgnoradosBtn:{background:"none",border:"none",color:"#b45309",fontWeight:700,cursor:"pointer",fontSize:13},list:{display:"flex",flexDirection:"column",gap:16},card:{background:"#fff",borderRadius:12,boxShadow:"0 2px 12px rgba(0,0,0,0.06)",overflow:"hidden",cursor:"pointer"},cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"16px 20px",borderBottom:"1px solid #f0f0f0"},pedidoId:{margin:"0 0 4px",fontWeight:700,fontSize:15,color:"#1a1a1a"},pedidoFecha:{margin:0,fontSize:12,color:"#aaa"},badge:{background:"#fff7ed",color:"#c2410c",fontWeight:700,fontSize:11,padding:"4px 10px",borderRadius:99,border:"1px solid #fed7aa"},cardBody:{padding:"16px 20px"},cardRow:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12},clienteLabel:{margin:"0 0 2px",fontSize:11,fontWeight:600,color:"#aaa",textTransform:"uppercase",letterSpacing:0.5},clienteEmail:{margin:0,fontSize:14,color:"#333",fontWeight:600},totalBadge:{textAlign:"right"},totalLabel:{margin:"0 0 2px",fontSize:11,color:"#aaa",textTransform:"uppercase",fontWeight:600},totalValor:{margin:0,fontSize:18,fontWeight:800,color:"#2d6a4f"},items:{display:"flex",flexDirection:"column",gap:4,background:"#f9f9f6",borderRadius:8,padding:"10px 14px",marginBottom:10},itemRow:{display:"flex",justifyContent:"space-between",fontSize:13},itemPrecio:{fontWeight:600,color:"#2d6a4f"},rutaResumen:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4},rutaTag:{fontSize:12,color:"#888",background:"#f5f5f0",borderRadius:99,padding:"3px 10px"},verRutaLink:{fontSize:12,color:"#2d6a4f",fontWeight:700,cursor:"pointer"},cardFooter:{padding:"14px 20px",borderTop:"1px solid #f0f0f0",display:"flex",gap:10},ignorarBtn:{flex:1,padding:"10px",background:"#fff5f5",color:"#c0392b",border:"1.5px solid #fecaca",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13},aceptarBtn:{flex:2,padding:"10px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},muted:{color:"#aaa",fontSize:14},errorBox:{background:"#fff0f0",color:"#c0392b",borderRadius:8,padding:"10px 14px",fontSize:13,marginBottom:16},emptyState:{textAlign:"center",padding:"60px 0"},emptyText:{color:"#555",fontSize:15,fontWeight:600},emptySubtext:{color:"#aaa",fontSize:13,marginTop:4}};
+const s={page:{minHeight:"100vh",background:"#f7f7f3",fontFamily:"'Segoe UI',sans-serif"},header:{background:"#1a1a1a",color:"#fff",padding:"0 32px",height:56,display:"flex",alignItems:"center"},headerInner:{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center"},headerLogo:{fontWeight:700,fontSize:18},headerRight:{display:"flex",alignItems:"center",gap:16},trabajadorInfo:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2},trabajadorLoc:{fontSize:11,color:"#f4a261",fontWeight:600},headerEmail:{fontSize:13,color:"#aaa"},logoutBtn:{background:"none",border:"1px solid #555",color:"#ccc",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:13},container:{maxWidth:760,margin:"0 auto",padding:32},topBar:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24},title:{margin:0,fontSize:22,fontWeight:700,color:"#1a1a1a"},refreshBtn:{background:"#fff",border:"1.5px solid #e0e0e0",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:14,fontWeight:600},ignoradosBanner:{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:13,color:"#92400e"},mostrarIgnoradosBtn:{background:"none",border:"none",color:"#b45309",fontWeight:700,cursor:"pointer",fontSize:13},list:{display:"flex",flexDirection:"column",gap:16},card:{background:"#fff",borderRadius:12,boxShadow:"0 2px 12px rgba(0,0,0,0.06)",overflow:"hidden",cursor:"pointer"},cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"16px 20px",borderBottom:"1px solid #f0f0f0"},pedidoId:{margin:"0 0 4px",fontWeight:700,fontSize:15,color:"#1a1a1a"},pedidoFecha:{margin:0,fontSize:12,color:"#aaa"},badge:{background:"#fff7ed",color:"#c2410c",fontWeight:700,fontSize:11,padding:"4px 10px",borderRadius:99,border:"1px solid #fed7aa"},cardBody:{padding:"16px 20px"},cardRow:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12},CLIENTLabel:{margin:"0 0 2px",fontSize:11,fontWeight:600,color:"#aaa",textTransform:"uppercase",letterSpacing:0.5},CLIENTEmail:{margin:0,fontSize:14,color:"#333",fontWeight:600},totalBadge:{textAlign:"right"},totalLabel:{margin:"0 0 2px",fontSize:11,color:"#aaa",textTransform:"uppercase",fontWeight:600},totalValor:{margin:0,fontSize:18,fontWeight:800,color:"#2d6a4f"},items:{display:"flex",flexDirection:"column",gap:4,background:"#f9f9f6",borderRadius:8,padding:"10px 14px",marginBottom:10},itemRow:{display:"flex",justifyContent:"space-between",fontSize:13},itemPrecio:{fontWeight:600,color:"#2d6a4f"},rutaResumen:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4},rutaTag:{fontSize:12,color:"#888",background:"#f5f5f0",borderRadius:99,padding:"3px 10px"},verRutaLink:{fontSize:12,color:"#2d6a4f",fontWeight:700,cursor:"pointer"},cardFooter:{padding:"14px 20px",borderTop:"1px solid #f0f0f0",display:"flex",gap:10},ignorarBtn:{flex:1,padding:"10px",background:"#fff5f5",color:"#c0392b",border:"1.5px solid #fecaca",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13},aceptarBtn:{flex:2,padding:"10px",background:"#2d6a4f",color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14},muted:{color:"#aaa",fontSize:14},errorBox:{background:"#fff0f0",color:"#c0392b",borderRadius:8,padding:"10px 14px",fontSize:13,marginBottom:16},emptyState:{textAlign:"center",padding:"60px 0"},emptyText:{color:"#555",fontSize:15,fontWeight:600},emptySubtext:{color:"#aaa",fontSize:13,marginTop:4}};

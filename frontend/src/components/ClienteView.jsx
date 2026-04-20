@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { crearPedido, getProductos, cancelarPedido, getMiPedidoActivo, getMiPedidoEntregado, puntuarPedido } from "../api";
 
-// ── Coordenadas fijas del cliente (Parque Titanium, Santiago Centro) ──
-const CLIENTE_LAT = -33.4197;
-const CLIENTE_LNG = -70.6058;
+// ── Coordenadas fijas del CLIENT (Parque Titanium, Santiago Centro) ──
+const CLIENT_LAT = -33.4197;
+const CLIENT_LNG = -70.6058;
 const RADIO_KM = 2;
 
 const RESTAURANTES_BASE = [
-  { id: "r1", nombre: "La Piazza Roma",  tipo: "Italiana", lat: -33.4175, lng: -70.6080, rating: 4.8, tiempo: "25–35 min" },
-  { id: "r2", nombre: "Burger House",    tipo: "Americana", lat: -33.4210, lng: -70.6030, rating: 4.5, tiempo: "15–25 min" },
-  { id: "r3", nombre: "Wok & Roll",      tipo: "China",    lat: -33.4165, lng: -70.6045, rating: 4.3, tiempo: "20–35 min" },
+  { id: "r1", first_name: "La Piazza Roma",  tipo: "Italiana", lat: -33.4175, lng: -70.6080, rating: 4.8, tiempo: "25–35 min" },
+  { id: "r2", first_name: "Burger House",    tipo: "Americana", lat: -33.4210, lng: -70.6030, rating: 4.5, tiempo: "15–25 min" },
+  { id: "r3", first_name: "Wok & Roll",      tipo: "China",    lat: -33.4165, lng: -70.6045, rating: 4.3, tiempo: "20–35 min" },
 ];
 
 function distanciaKm(lat1, lng1, lat2, lng2) {
@@ -41,7 +41,7 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
       if (!window.L || !mapRef.current) return;
       if (mapInstanceRef.current) return;
       const L = window.L;
-      const map = L.map(mapRef.current, { center: [CLIENTE_LAT, CLIENTE_LNG], zoom: 14 });
+      const map = L.map(mapRef.current, { center: [CLIENT_LAT, CLIENT_LNG], zoom: 14 });
       setupMap(L, map);
     }
 
@@ -50,7 +50,7 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
-      L.marker([CLIENTE_LAT, CLIENTE_LNG], {
+      L.marker([CLIENT_LAT, CLIENT_LNG], {
         icon: L.divIcon({
           className: "",
           html: `<div style="background:#e63946;color:#fff;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);font-weight:700;">Tú</div>`,
@@ -58,7 +58,7 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
         })
       }).addTo(map).bindPopup("<b>Tu ubicación</b><br>Parque Titanium");
 
-      L.circle([CLIENTE_LAT, CLIENTE_LNG], {
+      L.circle([CLIENT_LAT, CLIENT_LNG], {
         radius: RADIO_KM * 1000, color: "#2d6a4f", fillColor: "#2d6a4f",
         fillOpacity: 0.05, weight: 1.5, dashArray: "8,6",
       }).addTo(map);
@@ -71,7 +71,7 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
             iconSize: [40, 40], iconAnchor: [20, 20],
           })
         }).addTo(map)
-          .bindPopup(`<b>${r.nombre}</b><br>${r.tipo}<br>${r.rating} · ${r.tiempo}`);
+          .bindPopup(`<b>${r.first_name}</b><br>${r.tipo}<br>${r.rating} · ${r.tiempo}`);
         marker.on("click", () => onSeleccionar(r));
         markersRef.current[r.id] = marker;
       });
@@ -117,7 +117,7 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
     if (seleccionado && L.Routing) {
       const control = L.Routing.control({
         waypoints: [
-          L.latLng(CLIENTE_LAT, CLIENTE_LNG),
+          L.latLng(CLIENT_LAT, CLIENT_LNG),
           L.latLng(seleccionado.lat, seleccionado.lng),
         ],
         routeWhileDragging: false,
@@ -162,12 +162,12 @@ function MapaRestaurantesLeaflet({ restaurantes, seleccionado, onSeleccionar }) 
       {seleccionado && (
         <div style={ms.rutaBanner}>
           {!infoRuta ? (
-            <span style={ms.rutaCalculando}>Calculando ruta hacia <b>{seleccionado.nombre}</b>…</span>
+            <span style={ms.rutaCalculando}>Calculando ruta hacia <b>{seleccionado.first_name}</b>…</span>
           ) : infoRuta.error ? (
             <span style={ms.rutaError}>No se pudo calcular la ruta. Intenta de nuevo.</span>
           ) : (
             <span style={ms.rutaInfo}>
-              Ruta a <b>{seleccionado.nombre}</b>:&nbsp;
+              Ruta a <b>{seleccionado.first_name}</b>:&nbsp;
               <span style={ms.rutaDato}>{infoRuta.distancia} km</span>
               &nbsp;·&nbsp;
               <span style={ms.rutaDato}>{infoRuta.duracion} min</span>
@@ -201,8 +201,8 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
 
   // Coordenadas del repartidor: las guardadas en BD al aceptar el pedido,
   // o las coordenadas de Costanera Center como fallback
-  const TRAB_LAT = pedido.trabajador_lat ? Number(pedido.trabajador_lat) : -33.4172;
-  const TRAB_LNG = pedido.trabajador_lng ? Number(pedido.trabajador_lng) : -70.6065;
+  const TRAB_LAT = pedido.worker_lat ? Number(pedido.worker_lat) : -33.4172;
+  const TRAB_LNG = pedido.worker_lng ? Number(pedido.worker_lng) : -70.6065;
 
   useEffect(() => {
     function initMap() {
@@ -210,7 +210,7 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
       const L = window.L;
 
       const map = L.map(mapRef.current, {
-        center: [CLIENTE_LAT, CLIENTE_LNG],
+        center: [CLIENT_LAT, CLIENT_LNG],
         zoom: 14,
       });
 
@@ -218,8 +218,8 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
-      // Marcador cliente (destino final)
-      L.marker([CLIENTE_LAT, CLIENTE_LNG], {
+      // Marcador CLIENT (destino final)
+      L.marker([CLIENT_LAT, CLIENT_LNG], {
         icon: L.divIcon({
           className: "",
           html: `<div style="background:#e63946;color:#fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);">🏠</div>`,
@@ -234,9 +234,9 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
           html: `<div style="background:#2d6a4f;color:#fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;border:3px solid #fff;box-shadow:0 2px 8px rgba(45,106,79,0.4);">🍽️</div>`,
           iconSize: [40, 40], iconAnchor: [20, 20],
         })
-      }).addTo(map).bindPopup(`<b>${restaurante?.nombre ?? "Sucursal"}</b>`);
+      }).addTo(map).bindPopup(`<b>${restaurante?.first_name ?? "Sucursal"}</b>`);
 
-      if (pedido.estado === "EN_CAMINO") {
+      if (pedido.state === "EN_ROUTE") {
         // Marcador repartidor
         L.marker([TRAB_LAT, TRAB_LNG], {
           icon: L.divIcon({
@@ -246,13 +246,13 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
           })
         }).addTo(map).bindPopup("<b>Repartidor</b>");
 
-        // Ruta completa: repartidor → sucursal → cliente
+        // Ruta completa: repartidor → sucursal → CLIENT
         if (L.Routing) {
           const control = L.Routing.control({
             waypoints: [
               L.latLng(TRAB_LAT, TRAB_LNG),
               L.latLng(SUCURSAL_LAT, SUCURSAL_LNG),
-              L.latLng(CLIENTE_LAT, CLIENTE_LNG),
+              L.latLng(CLIENT_LAT, CLIENT_LNG),
             ],
             routeWhileDragging: false,
             addWaypoints: false,
@@ -272,12 +272,12 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
           routingRef.current = control;
         }
       } else {
-        // PENDIENTE: ruta punteada sucursal → cliente
+        // PENDIENTE: ruta punteada sucursal → CLIENT
         if (L.Routing) {
           const control = L.Routing.control({
             waypoints: [
               L.latLng(SUCURSAL_LAT, SUCURSAL_LNG),
-              L.latLng(CLIENTE_LAT, CLIENTE_LNG),
+              L.latLng(CLIENT_LAT, CLIENT_LNG),
             ],
             routeWhileDragging: false,
             addWaypoints: false,
@@ -299,9 +299,9 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
       }
 
       map.fitBounds(
-        pedido.estado === "EN_CAMINO"
-          ? [[TRAB_LAT, TRAB_LNG], [SUCURSAL_LAT, SUCURSAL_LNG], [CLIENTE_LAT, CLIENTE_LNG]]
-          : [[SUCURSAL_LAT, SUCURSAL_LNG], [CLIENTE_LAT, CLIENTE_LNG]],
+        pedido.state === "EN_ROUTE"
+          ? [[TRAB_LAT, TRAB_LNG], [SUCURSAL_LAT, SUCURSAL_LNG], [CLIENT_LAT, CLIENT_LNG]]
+          : [[SUCURSAL_LAT, SUCURSAL_LNG], [CLIENT_LAT, CLIENT_LNG]],
         { padding: [40, 40] }
       );
 
@@ -314,7 +314,7 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
       const iv = setInterval(() => { if (window.L) { clearInterval(iv); initMap(); } }, 100);
       return () => clearInterval(iv);
     }
-  }, [pedido.estado]);
+  }, [pedido.state]);
 
   async function handleCancelar() {
     if (!confirm("¿Seguro que quieres cancelar tu pedido?")) return;
@@ -341,7 +341,7 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
     );
   }
 
-  const esPendiente = pedido.estado === "PENDIENTE";
+  const esPendiente = pedido.state === "PENDING";
 
   return (
     <div style={seg.wrap}>
@@ -374,7 +374,7 @@ function SeguimientoPedido({ pedido, onCancelar, restaurante }) {
         <div style={seg.mapaHeader}>
           <span style={seg.mapaTit}>Seguimiento en vivo</span>
           <div style={seg.leyenda}>
-            {pedido.estado === "EN_CAMINO" && (
+            {pedido.state === "EN_ROUTE" && (
               <span style={seg.ley}><span style={{ ...seg.dot, background: "#f4a261" }} /> Repartidor</span>
             )}
             <span style={seg.ley}><span style={{ ...seg.dot, background: "#2d6a4f" }} /> Sucursal</span>
@@ -467,16 +467,16 @@ function MenuRestaurante({ restaurante, onVolver }) {
   const itemsCarrito = Object.entries(carrito).map(([id, cantidad]) => ({
     producto: menu.find(p => p.id === id), cantidad,
   }));
-  const total = itemsCarrito.reduce((s, { producto, cantidad }) => s + (producto?.precio || 0) * cantidad, 0);
+  const total = itemsCarrito.reduce((s, { producto, cantidad }) => s + (producto?.price || 0) * cantidad, 0);
 
   async function confirmarPedido() {
     setEnviando(true); setError("");
     try {
-      const items = itemsCarrito.map(({ producto, cantidad }) => ({ product_id: producto.id, cantidad }));
+      const items = itemsCarrito.map(({ producto, cantidad }) => ({ product_id: producto.id, amount: cantidad }));
       const res = await crearPedido(items);
       if (res.error) { setError(res.error); return; }
       // Mostrar seguimiento inmediatamente con estado PENDIENTE
-      setPedidoActivo({ id: res.id, estado: "PENDIENTE" });
+      setPedidoActivo({ id: res.id, state: "PENDING" });
     } catch {
       setError("Error al enviar el pedido.");
     } finally {
@@ -484,35 +484,41 @@ function MenuRestaurante({ restaurante, onVolver }) {
     }
   }
 
-  // FIX #3 y #4: Polling automático — consulta el estado del pedido cada 4 s.
-  // Cuando el trabajador acepta, el estado cambia a EN_CAMINO y se reciben
-  // las coords del repartidor, actualizando la vista del cliente automáticamente.
-  // Cuando el trabajador entrega, el estado pasa a ENTREGADO y se muestra la pantalla de puntuación.
-  useEffect(() => {
-    if (!pedidoActivo) return;
-    const interval = setInterval(async () => {
-      try {
-        const data = await getMiPedidoActivo();
-        if (!data || data.error) {
-          // El pedido ya no está activo (puede haber sido entregado)
-          // Consultamos si hay un pedido recién entregado sin puntuar
-          const entregado = await getMiPedidoEntregado();
-          if (entregado && entregado.id) {
-            clearInterval(interval);
-            setPedidoActivo(null);
-            setPedidoEntregadoId(entregado.id);
-          }
-          return;
+  // DESPUÉS
+const pollingIdRef = useRef(null);
+
+useEffect(() => {
+  if (!pedidoActivo) return;
+  pollingIdRef.current = pedidoActivo.id;
+
+  const interval = setInterval(async () => {
+    try {
+      const data = await getMiPedidoActivo();
+      if (!data || data.error) {
+        // El pedido ya no está activo — puede estar ENTREGADO
+        const entregado = await getMiPedidoEntregado();
+        if (entregado && entregado.id) {
+          clearInterval(interval);
+          pollingIdRef.current = null;
+          setPedidoActivo(null);
+          setPedidoEntregadoId(entregado.id);
         }
-        setPedidoActivo(prev => {
-          if (!prev) return prev;
-          if (prev.estado === data.estado && prev.trabajador_lat === data.trabajador_lat) return prev;
-          return { ...prev, ...data };
-        });
-      } catch { /* silencioso */ }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [pedidoActivo?.id]);
+        return;
+      }
+      // Actualizar solo si algo cambió
+      setPedidoActivo(prev => {
+        if (!prev) return prev;
+        if (prev.state === data.state && prev.worker_lat === data.worker_lat) return prev;
+        return { ...prev, ...data };
+      });
+    } catch { /* silencioso */ }
+  }, 3000); // ← reducido a 3s para que la transición sea más rápida
+
+  return () => {
+    clearInterval(interval);
+    pollingIdRef.current = null;
+  };
+}, [pedidoActivo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si el pedido fue entregado, mostrar pantalla de puntuación
   if (pedidoEntregadoId) {
@@ -534,7 +540,7 @@ function MenuRestaurante({ restaurante, onVolver }) {
       <div style={mv.wrap}>
         <div style={mv.restoHeader}>
           <div style={mv.restoInfo}>
-            <h2 style={mv.restoNombre}>{restaurante.nombre}</h2>
+            <h2 style={mv.restofirst_name}>{restaurante.first_name}</h2>
             <div style={mv.restoBadges}>
               <span style={mv.badge}>{restaurante.tipo}</span>
               <span style={mv.badge}>{restaurante.rating}</span>
@@ -543,7 +549,7 @@ function MenuRestaurante({ restaurante, onVolver }) {
         </div>
         <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
           <SeguimientoPedido
-            key={pedidoActivo.estado}
+            key={pedidoActivo.state}
             pedido={pedidoActivo}
             restaurante={restaurante}
             onCancelar={() => {
@@ -562,7 +568,7 @@ function MenuRestaurante({ restaurante, onVolver }) {
       <div style={mv.restoHeader}>
         <button onClick={onVolver} style={mv.backBtn}>← Volver al mapa</button>
         <div style={mv.restoInfo}>
-          <h2 style={mv.restoNombre}>{restaurante.nombre}</h2>
+          <h2 style={mv.restofirst_name}>{restaurante.first_name}</h2>
           <div style={mv.restoBadges}>
             <span style={mv.badge}>{restaurante.tipo}</span>
             <span style={mv.badge}>{restaurante.rating}</span>
@@ -578,9 +584,9 @@ function MenuRestaurante({ restaurante, onVolver }) {
               {menu.map(p => (
                 <div key={p.id} style={mv.card}>
                   <div style={mv.cardInfo}>
-                    <p style={mv.cardNombre}>{p.nombre}</p>
-                    <p style={mv.cardDesc}>{p.descripcion}</p>
-                    <p style={mv.cardPrecio}>${Number(p.precio).toLocaleString("es-CL")}</p>
+                    <p style={mv.cardfirst_name}>{p.name}</p>
+                    <p style={mv.cardDesc}>{p.description}</p>
+                    <p style={mv.cardPrecio}>${Number(p.price).toLocaleString("es-CL")}</p>
                   </div>
                   <div style={mv.cardAction}>
                     {carrito[p.id] ? (
@@ -604,8 +610,8 @@ function MenuRestaurante({ restaurante, onVolver }) {
             <>
               {itemsCarrito.map(({ producto, cantidad }) => (
                 <div key={producto.id} style={mv.cartItem}>
-                  <span style={mv.cartNombre}>{producto.nombre} ×{cantidad}</span>
-                  <span style={mv.cartPrecio}>${(producto.precio * cantidad).toLocaleString("es-CL")}</span>
+                  <span style={mv.cartfirst_name}>{producto.name} ×{cantidad}</span>
+                  <span style={mv.cartPrecio}>${(producto.price * cantidad).toLocaleString("es-CL")}</span>
                 </div>
               ))}
               <div style={mv.totalRow}>
@@ -633,24 +639,24 @@ export default function ClienteView({ email, onLogout }) {
 
   useEffect(() => {
     const emojis = { pizza: "Pi", hamburguesa: "H", bebida: "B", pasta: "Pa", pollo: "Po", arroz: "A" };
-    function emoji(nombre) {
-      const n = nombre.toLowerCase();
+    function emoji(first_name) {
+      const n = first_name.toLowerCase();
       for (const [k, v] of Object.entries(emojis)) { if (n.includes(k)) return v; }
       return "Pl";
     }
     getProductos()
       .then(productos => {
         const prods = Array.isArray(productos)
-          ? productos.map(p => ({ ...p, precio: Number(p.precio), emoji: emoji(p.nombre) }))
+          ? productos.map(p => ({ ...p, price: Number(p.price), emoji: emoji(p.name) }))
           : [];
         const filtrados = RESTAURANTES_BASE.filter(r =>
-          distanciaKm(CLIENTE_LAT, CLIENTE_LNG, r.lat, r.lng) <= RADIO_KM
+          distanciaKm(CLIENT_LAT, CLIENT_LNG, r.lat, r.lng) <= RADIO_KM
         );
         setRestaurantes(filtrados.map(r => ({ ...r, menu: prods })));
       })
       .catch(() => {
         setRestaurantes(RESTAURANTES_BASE
-          .filter(r => distanciaKm(CLIENTE_LAT, CLIENTE_LNG, r.lat, r.lng) <= RADIO_KM)
+          .filter(r => distanciaKm(CLIENT_LAT, CLIENT_LNG, r.lat, r.lng) <= RADIO_KM)
           .map(r => ({ ...r, menu: [] }))
         );
       })
@@ -687,13 +693,13 @@ export default function ClienteView({ email, onLogout }) {
                   <h3 style={s.listaTitulo}>{restaurantes.length} restaurantes cercanos</h3>
                   <div style={s.lista}>
                     {restaurantes.map(r => {
-                      const dist = distanciaKm(CLIENTE_LAT, CLIENTE_LNG, r.lat, r.lng);
+                      const dist = distanciaKm(CLIENT_LAT, CLIENT_LNG, r.lat, r.lng);
                       const activo = restauranteSeleccionado?.id === r.id;
                       return (
                         <div key={r.id} onClick={() => setRestauranteSeleccionado(r)}
                           style={{ ...s.restoCard, ...(activo ? s.restoCardActivo : {}) }}>
                           <div>
-                            <p style={s.restoNombre}>{r.nombre}</p>
+                            <p style={s.restofirst_name}>{r.first_name}</p>
                             <p style={s.restoTipo}>{r.tipo}</p>
                             <div style={s.restoBadges}>
                               <span style={s.miniB}>{r.rating}</span>
@@ -708,7 +714,7 @@ export default function ClienteView({ email, onLogout }) {
                   </div>
                   {restauranteSeleccionado && (
                     <button onClick={() => setVista("menu")} style={s.verMenuBtn}>
-                      Ver menú de {restauranteSeleccionado.nombre} →
+                      Ver menú de {restauranteSeleccionado.first_name} →
                     </button>
                   )}
                 </div>
@@ -762,7 +768,7 @@ const mv = {
   restoHeader: { background: "#fff", borderBottom: "1px solid #ebebeb", padding: "16px 32px" },
   backBtn: { background: "none", border: "none", color: "#2d6a4f", fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 10, padding: 0 },
   restoInfo: { display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" },
-  restoNombre: { margin: 0, fontSize: 22, fontWeight: 800, color: "#1a1a1a" },
+  restofirst_name: { margin: 0, fontSize: 22, fontWeight: 800, color: "#1a1a1a" },
   restoBadges: { display: "flex", gap: 8, flexWrap: "wrap" },
   badge: { background: "#f0f0ea", color: "#555", borderRadius: 99, padding: "4px 12px", fontSize: 13, fontWeight: 600 },
   layout: { display: "flex", gap: 24, padding: 32, maxWidth: 1200, margin: "0 auto" },
@@ -771,7 +777,7 @@ const mv = {
   menuGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 16 },
   card: { background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column" },
   cardInfo: { padding: "14px 16px", flex: 1 },
-  cardNombre: { margin: "0 0 4px", fontWeight: 700, fontSize: 15, color: "#1a1a1a" },
+  cardfirst_name: { margin: "0 0 4px", fontWeight: 700, fontSize: 15, color: "#1a1a1a" },
   cardDesc: { margin: "0 0 8px", fontSize: 12, color: "#888", lineHeight: 1.5 },
   cardPrecio: { margin: 0, fontWeight: 800, fontSize: 16, color: "#2d6a4f" },
   cardAction: { padding: "12px 16px", borderTop: "1px solid #f0f0f0" },
@@ -781,7 +787,7 @@ const mv = {
   cNum: { fontWeight: 700, fontSize: 15 },
   sidebar: { width: 300, background: "#fff", borderRadius: 12, padding: 24, height: "fit-content", boxShadow: "0 2px 16px rgba(0,0,0,0.06)", position: "sticky", top: 24 },
   cartItem: { display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0f0f0", fontSize: 13 },
-  cartNombre: { color: "#444", flex: 1, paddingRight: 8 },
+  cartfirst_name: { color: "#444", flex: 1, paddingRight: 8 },
   cartPrecio: { fontWeight: 600, color: "#1a1a1a", whiteSpace: "nowrap" },
   totalRow: { display: "flex", justifyContent: "space-between", padding: "12px 0", fontSize: 16, borderTop: "2px solid #1a1a1a", marginTop: 8 },
   confirmBtn: { width: "100%", padding: 12, background: "#2d6a4f", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 15, marginTop: 16 },
@@ -808,7 +814,7 @@ const s = {
   lista: { display: "flex", flexDirection: "column", gap: 10 },
   restoCard: { background: "#fff", borderRadius: 12, padding: "14px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", border: "2px solid transparent", transition: "all .15s" },
   restoCardActivo: { border: "2px solid #2d6a4f", background: "#f0fdf4" },
-  restoNombre: { margin: "0 0 2px", fontWeight: 700, fontSize: 15, color: "#1a1a1a" },
+  restofirst_name: { margin: "0 0 2px", fontWeight: 700, fontSize: 15, color: "#1a1a1a" },
   restoTipo: { margin: "0 0 8px", fontSize: 13, color: "#666" },
   restoBadges: { display: "flex", gap: 6, flexWrap: "wrap" },
   miniB: { fontSize: 12, color: "#666", background: "#f5f5f0", borderRadius: 99, padding: "2px 8px" },

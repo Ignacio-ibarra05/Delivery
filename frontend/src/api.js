@@ -21,7 +21,7 @@ export async function login(email, password) {
   return res.json();
 }
 
-// Registro público — solo crea clientes
+// Registro público — solo crea CLIENTs
 export async function register(datos) {
   const res = await fetch(`${API_URL}/users/register`, {
     method: "POST",
@@ -39,16 +39,16 @@ export async function getProductos() {
   return res.json();
 }
 
-// ── Pedidos ───────────────────────────────────────────
-export async function getPedidosPendientes() {
-  const res = await fetch(`${API_URL}/orders/pedidos/pendientes`, {
+// ── delivery ───────────────────────────────────────────
+export async function getdeliveryPendientes() {
+  const res = await fetch(`${API_URL}/orders/delivery/pendientes`, {
     headers: authHeaders(),
   });
   return res.json();
 }
 
 export async function aceptarPedido(pedidoId) {
-  const res = await fetch(`${API_URL}/orders/pedidos/${pedidoId}/aceptar`, {
+  const res = await fetch(`${API_URL}/orders/delivery/${pedidoId}/aceptar`, {
     method: "PATCH",
     headers: authHeaders(),
   });
@@ -57,16 +57,20 @@ export async function aceptarPedido(pedidoId) {
 
 // Acepta el pedido enviando las coordenadas del trabajador y la sucursal
 export async function aceptarPedidoConCoords(pedidoId, coords) {
-  const res = await fetch(`${API_URL}/orders/pedidos/${pedidoId}/aceptar`, {
+  const res = await fetch(`${API_URL}/orders/delivery/${pedidoId}/aceptar`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(coords),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    return { error: data.error || `Error ${res.status}` };
+  }
+  return data;
 }
 
 export async function crearPedido(items) {
-  const res = await fetch(`${API_URL}/orders/pedidos`, {
+  const res = await fetch(`${API_URL}/orders/delivery`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({ items }),
@@ -74,26 +78,32 @@ export async function crearPedido(items) {
   return res.json();
 }
 
-// Devuelve el pedido activo del cliente (PENDIENTE o EN_CAMINO), o null si no hay ninguno
+// Devuelve el pedido activo del CLIENT (PENDIENTE o EN_CAMINO), o null si no hay ninguno
 export async function getMiPedidoActivo() {
-  const res = await fetch(`${API_URL}/orders/pedidos/mi-activo`, {
+  const res = await fetch(`${API_URL}/orders/delivery/mi-activo`, {
     headers: authHeaders(),
   });
   return res.json();
 }
 
 // Marca el pedido como entregado (solo trabajador)
+// {{base_url}}/api/orders/delivery/{{pedido_id}}/entregar
 export async function entregarPedido(pedidoId) {
-  const res = await fetch(`${API_URL}/orders/pedidos/${pedidoId}/entregar`, {
+  const res = await fetch(`${API_URL}/orders/delivery/${pedidoId}/entregar`, {
     method: "PATCH",
     headers: authHeaders(),
+    body: JSON.stringify({}),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    return { error: data.error || `Error ${res.status}` };
+  }
+  return data;
 }
 
-// Puntúa el pedido entregado (cliente); rating puede ser 0-5 o null si no quiere puntuar
+// Puntúa el pedido entregado (CLIENT); rating puede ser 0-5 o null si no quiere puntuar
 export async function puntuarPedido(pedidoId, rating) {
-  const res = await fetch(`${API_URL}/orders/pedidos/${pedidoId}/puntuar`, {
+  const res = await fetch(`${API_URL}/orders/delivery/${pedidoId}/puntuar`, {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify({ rating }),
@@ -101,17 +111,17 @@ export async function puntuarPedido(pedidoId, rating) {
   return res.json();
 }
 
-// Devuelve el pedido recién entregado sin puntuar del cliente (últimos 10 min), o null
+// Devuelve el pedido recién entregado sin puntuar del CLIENT (últimos 10 min), o null
 export async function getMiPedidoEntregado() {
-  const res = await fetch(`${API_URL}/orders/pedidos/mi-entregado`, {
+  const res = await fetch(`${API_URL}/orders/delivery/mi-entregado`, {
     headers: authHeaders(),
   });
   return res.json();
 }
 
-// Cancela el pedido del cliente (solo si está en estado PENDIENTE)
+// Cancela el pedido del CLIENT (solo si está en estado PENDIENTE)
 export async function cancelarPedido(pedidoId) {
-  const res = await fetch(`${API_URL}/orders/pedidos/${pedidoId}`, {
+  const res = await fetch(`${API_URL}/orders/delivery/${pedidoId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -119,22 +129,22 @@ export async function cancelarPedido(pedidoId) {
 }
 
 // ── Admin: consultas ──────────────────────────────────
-export async function getAdminUsuarios() {
-  const res = await fetch(`${API_URL}/orders/admin/usuarios`, {
+export async function getAdminuser() {
+  const res = await fetch(`${API_URL}/orders/admin/user`, {
     headers: authHeaders(),
   });
   return res.json();
 }
 
-export async function getAdminTrabajadores() {
-  const res = await fetch(`${API_URL}/orders/admin/trabajadores`, {
+export async function getAdminworker() {
+  const res = await fetch(`${API_URL}/orders/admin/worker`, {
     headers: authHeaders(),
   });
   return res.json();
 }
 
-export async function getAdminPedidos() {
-  const res = await fetch(`${API_URL}/orders/admin/pedidos`, {
+export async function getAdmindelivery() {
+  const res = await fetch(`${API_URL}/orders/admin/delivery`, {
     headers: authHeaders(),
   });
   return res.json();
@@ -142,7 +152,7 @@ export async function getAdminPedidos() {
 
 // ── Admin: eliminar usuario por email ────────────────
 export async function adminEliminarUsuario(email) {
-  const res = await fetch(`${API_URL}/orders/admin/usuarios/${encodeURIComponent(email)}`, {
+  const res = await fetch(`${API_URL}/orders/admin/user/${encodeURIComponent(email)}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -151,7 +161,7 @@ export async function adminEliminarUsuario(email) {
 
 // ── Admin: eliminar pedido por id ─────────────────────
 export async function adminEliminarPedido(id) {
-  const res = await fetch(`${API_URL}/orders/admin/pedidos/${id}`, {
+  const res = await fetch(`${API_URL}/orders/admin/delivery/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
   });

@@ -1,25 +1,25 @@
 CREATE TABLE orders.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  usuario_id UUID NOT NULL,
-  trabajador_id UUID,
-  estado TEXT DEFAULT 'PENDIENTE',
+  user_id UUID NOT NULL,
+  worker_id UUID,
+  state TEXT DEFAULT 'PENDING',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_order_usuario
-    FOREIGN KEY (usuario_id)
-    REFERENCES auth.usuarios(id),
+  CONSTRAINT fk_order_user
+    FOREIGN KEY (user_id)
+    REFERENCES auth.user(id),
 
-  CONSTRAINT fk_order_trabajador
-    FOREIGN KEY (trabajador_id)
-    REFERENCES auth.trabajadores(id)
+  CONSTRAINT fk_order_worker
+    FOREIGN KEY (worker_id)
+    REFERENCES auth.worker(id)
 );
 
--- DETALLE DEL PEDIDO
+-- ORDER ITEMS
 CREATE TABLE orders.order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL,
   product_id UUID NOT NULL,
-  cantidad INT NOT NULL,
+  amount INT NOT NULL,
 
   CONSTRAINT fk_item_order
     FOREIGN KEY (order_id)
@@ -31,11 +31,11 @@ CREATE TABLE orders.order_items (
     REFERENCES products.products(id)
 );
 
--- COLUMNAS ADICIONALES para entrega y puntuación
+-- ADDITIONAL COLUMNS for delivery and rating
 ALTER TABLE orders.orders
-  ADD COLUMN IF NOT EXISTS trabajador_lat  NUMERIC,
-  ADD COLUMN IF NOT EXISTS trabajador_lng  NUMERIC,
-  ADD COLUMN IF NOT EXISTS sucursal_lat    NUMERIC,
-  ADD COLUMN IF NOT EXISTS sucursal_lng    NUMERIC,
-  ADD COLUMN IF NOT EXISTS rating          SMALLINT CHECK (rating BETWEEN 0 AND 5),
-  ADD COLUMN IF NOT EXISTS entregado_at    TIMESTAMP;
+  ADD COLUMN IF NOT EXISTS worker_lat  NUMERIC,
+  ADD COLUMN IF NOT EXISTS worker_lng  NUMERIC,
+  ADD COLUMN IF NOT EXISTS local_lat   NUMERIC,
+  ADD COLUMN IF NOT EXISTS local_lng   NUMERIC,
+  ADD COLUMN IF NOT EXISTS rating      SMALLINT CHECK (rating BETWEEN 0 AND 5),
+  ADD COLUMN IF NOT EXISTS delivery_at TIMESTAMP;
