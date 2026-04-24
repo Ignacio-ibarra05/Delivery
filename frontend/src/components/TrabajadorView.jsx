@@ -161,7 +161,7 @@ function PedidoAceptadoView({ pedido, sucursal, onNuevoPedido }) {
         <div style={ac.resumenCard}>
           <p style={ac.resumenTit}>Detalle del pedido</p>
           {pedido.items.map((item,i)=>(
-            <div key={i} style={ac.resumenRow}><span>{item.name} ×{Number(i.amount)}</span><span style={ac.resumenPrecio}>${((Number(i.price)||0)*Number(i.amount)).toLocaleString("es-CL")}</span></div>
+            <div key={i} style={ac.resumenRow}><span>{item.name} ×{Number(item.amount)}</span><span style={ac.resumenPrecio}>${((Number(item.price)||0)*Number(item.amount)).toLocaleString("es-CL")}</span></div>
           ))}
           <div style={ac.resumenTotal}><span>Total</span><strong>${totalPedido.toLocaleString("es-CL")}</strong></div>
         </div>
